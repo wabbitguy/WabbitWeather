@@ -1,4 +1,4 @@
-# ESP8266 and ESP32 Open-Meteo weather client
+# ESP32 2.8" CYD Open-Meteo weather client
 
 Arduino client library for https://open-Meteo
 
