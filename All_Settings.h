@@ -65,9 +65,8 @@ uint32_t sunrise, sunset;  // where the trigger points are for autodim
 String units = "imperial";
 
 // Set both longitude and latitude to at least 4 decimal places
-String latitude = "49.154";     // 90.0000 to -90.0000 negative for Southern hemisphere
-String longitude = "-122.772";  // 180.000 to -180.000 negative for West
-
+String latitude = "49.2756";     // 90.0000 to -90.0000 negative for Southern hemisphere
+String longitude = "-123.1041";  // 180.000 to -180.000 negative for West
 //
 bool show24Hour = false;            // display a 24 or 12 hour clock
 bool autoDimDusk = true;            // daytime is orange clock numbers, nighttime is dark grey
