@@ -30,7 +30,7 @@
 // Json streaming parser (do not use IDE library manager version) to use is here:
 // https://github.com/Bodmer/JSON_Decoder
 
-// Modifications to use Open Meteo by WabbitGuy (Mel)
+// Modifications to use Open Meteo by WabbitGuy (Mel) more at end of this file
 
 
 #include <FS.h>
@@ -100,6 +100,9 @@ boolean runBdcOnce = false;  // only need a location once..
 #define TFT_BL_RES 8      // 8-bit = 0-255
 
 #define BL_DAY 255  // full brightness during daylight
+
+#define SCREEN_W 240
+#define SCREEN_H 320
 /***************************************************************************************
 **                          Declare prototypes
 ***************************************************************************************/
@@ -123,7 +126,7 @@ void drawWiFiQuality();
 uint32_t daySeconds(time_t unixTime);
 void handleAstronomyFrame();
 void handleHourlyFrame();
-void apModeCallback(WiFiManager *myWiFiManager);
+void configModeCallback(WiFiManager *myWiFiManager);
 void handleTempRangeColour(uint16_t theVal);
 void handlePrecipRange(uint16_t theVal);
 void findTheLocation();  // find the location based on long/lat
@@ -182,19 +185,18 @@ void setup() {
   delay(3000);
 
   tft.fillRect(0, 208, 240, 320 - 206, TFT_BLACK);
-
-  tft.drawString("Connecting to WiFi", 120, 240);
-  tft.setTextPadding(240);  // Pad next drawString() text to full width to over-write old text
   //
-  //WiFiManager
   WiFiManager wm;
-  wm.setAPCallback(apModeCallback);
+  wm.setAPCallback(configModeCallback);
   wm.autoConnect(DEFAULT_CAPTIVE_SSID);
+
+  // tft.drawString("Connecting to WiFi", 120, 244);
+  // tft.setTextPadding(240);  // Pad next drawString() text to full width to over-write old text
 
   tft.setTextDatum(BC_DATUM);
   tft.setTextPadding(240);        // Pad next drawString() text to full width to over-write old text
   tft.drawString(" ", 120, 220);  // Clear line above using set padding width
-  tft.drawString("Connected to WiFi", 120, 240);
+  tft.drawString("Connected to WiFi", 120, 244);
   delay(1000);
   //
   // Fetch the time
@@ -217,8 +219,8 @@ void setup() {
   tft.drawString("Fetching weather data...", 120, 240);
   delay(2000);
   //
-  WiFi.hostname(HOSTNAME);  //
-  syncTime(tzIndex);        // now we go look for a time server
+  // WiFi.hostname(HOSTNAME);  //
+  syncTime(tzIndex);  // now we go look for a time server
   //
   tft.unloadFont();
   //
@@ -826,9 +828,9 @@ void drawAstronomy() {
 **                          Set the colour for the temp range
 ***************************************************************************************/
 void handleTempRangeColour(uint16_t theVal) {
-    if (theVal >= highTempVal) tft.setTextColor(highTempColour, TFT_BLACK);
-    if (theVal < highTempVal) tft.setTextColor(midTempColour, TFT_BLACK);
-    if (theVal < lowTempVal) tft.setTextColor(lowTempColour, TFT_BLACK);
+  if (theVal >= highTempVal) tft.setTextColor(highTempColour, TFT_BLACK);
+  if (theVal < highTempVal) tft.setTextColor(midTempColour, TFT_BLACK);
+  if (theVal < lowTempVal) tft.setTextColor(lowTempColour, TFT_BLACK);
 }
 /***************************************************************************************
 **                          Set the colour for the POP range
@@ -1157,13 +1159,21 @@ int8_t getWifiQuality() {
 }
 //
 //To Display <Setup> if not connected to AP
-void apModeCallback(WiFiManager *myWiFiManager) {
-  tft.setTextDatum(BC_DATUM);
-  tft.setTextPadding(240);        // Pad next drawString() text to full width to over-write old text
-  tft.drawString(" ", 120, 220);  // Clear line above using set padding width
-  tft.drawString("Setup 192.168.4.1", 120, 240);
+void configModeCallback(WiFiManager *myWiFiManager) {
+  //Serial.println("Setup");
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString("Access Point Active", SCREEN_W / 2, (SCREEN_H / 2) - 18, 2);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.drawString(String(HOSTNAME), SCREEN_W / 2, SCREEN_H / 2, 4);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextFont(2);  // Use built-in font 2
+  tft.drawString("IP: 192.168.4.1", SCREEN_W / 2, (SCREEN_H / 2) + 18, 2);
+  tft.unloadFont();  // Remove font to recover memory
   delay(2000);
 }
+
 //uses the long and lat variables to find the city location name
 void findTheLocation() {
   String temp;
