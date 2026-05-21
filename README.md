@@ -33,6 +33,20 @@ https://github.com/Bodmer/TFT_eSPI
 
 The TFT_eSPI_Weather example works with the ESP32 CYD, it displays the weather data on 2.8" TFT screen.  These examples use anti-aliased fonts and newly icons from the AURA project.
 
+<h2>Arduino Steps:</h2>
+
+<ol>
+  <li>Download zip archive and unzip in your folder/directory of choice</li>
+  <li>Look in the TFT_eSPI folder to get the User_Setup.h file for the TFT_eSPI library</li>
+  <li>User_Setup.h is for ILI9341_2, User_Setup_ST7789 if needed rename to User_Setup.h</li>
+  <li>Run the Arduino IDE and open WabbitWeather.ino</li>
+  <li>ESP32 Dev Module - NO OTA (2MB APP/2MB SPIFFS)</li>
+  <li>Select port your CYD is connected to</li>
+  <li>Ctrl-shift-P or CMD-shift-P "Upload LittleFS..." (this will upload all data folder contents)</li>
+  <li>Compile, update any libraries that need it</li>
+</ol>
+
+
 Latest screen grabs:
 
 <img width="199" height="350" alt="WabbitWeather_One" src="https://github.com/user-attachments/assets/81bbd92a-b1bf-4342-a476-1c112ba051c6" />
