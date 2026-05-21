@@ -1,28 +1,29 @@
-# ESP8266 and ESP32 Dark Sky weather client
+# ESP32 2.8" CYD Open-Meteo weather client
 
-Arduino client library for https://darksky.net/dev
+Arduino client library for https://open-Meteo
 
 Collects current weather plus daily forecasts.
 
-March 10, 2019 - current code in use is in the Examples-->TFT_eSPI_weather folder
-* Added signal strength for ESP8266 - top right corner of display
+* Added signal strength for ESP32 - top right corner of display
 * Added current UV index 0 - 9 bar graph under signal strength
-* Removed baromatric pressure reading (really needs a history to show rising or falling to be useful)
-* Added ESP8266 captive portal for setup (removed router network and password from settings)
-* Added ESP9266 OTA update ability (shows as "HOSTNAME" IP in Arduino IDE).
-* Default HOSTNAME is WeatherMate
+* Redid baromatric pressure reading as an option (really needs a history to show rising or falling to be useful)
+* Added ESP32 captive portal for setup (removed router network and password from settings)
+* Default HOSTNAME is WabbitWeather for captive portal
 * Updates NTP once per hour
-* Updates DarkSky every 30 minutes
+* Updates Open-Meteo every 15 minutes
 * Added POP (probility of precipitation) to future forecast
-* Coloured POP - green low prob, orange (more or less a 50/50 chance), red for 75% or higher
-* Expanded date for last update info
+* Auto dim display at dusk to any brightness you want (including OFF)
+* Custom user selected coloured thresholds for POP% and daily temperatures
+* Expanded date for last weather update info
 * Fixed 12hr midnight clock (reads 12:xx now)...
 * Bottom of display rotates between Sunrise/set-Moon-Cloud-Humidity to POP%-Temp-Dew 6hr forecast
   Display rotates every 15 seconds
+* Web interface makes user adjustments easily done
+* Use Nominatim for location when you pin the map (long/lat)
+* Web interface includes WiFi reset so you can gift this to someone already preset
+* Weather icons are from the AURA repository on my GitHub site.
 
-AllSettings.h options
-* Time displayed 12 or 24 hr
-* AutoDimDusk (clock will dim (light grey) at sunset, change to yellow at sunrise for the day)
+AllSettings.h has default user options if you want to set them in advance.
 
 Requires the JSON parse library here:
 https://github.com/Bodmer/JSON_Decoder
@@ -30,18 +31,15 @@ https://github.com/Bodmer/JSON_Decoder
 Requires the TFT_eSPI library here:
 https://github.com/Bodmer/TFT_eSPI
 
-The DarkSkyWeather_Test example sketch sends collected data to the Serial port for API test. It does not not require a TFT screen.
-
-The TFT_eSPI_Weather example works with the ESP8266 and ESP32, it displays the weather data on a TFT screen.  These examples use anti-aliased fonts and newly created icons:
-
-![Weather isons](https://i.imgur.com/luK7Vcj.jpg)
+The TFT_eSPI_Weather example works with the ESP32 CYD, it displays the weather data on 2.8" TFT screen.  These examples use anti-aliased fonts and newly icons from the AURA project.
 
 Latest screen grabs:
 
-![TFT splash screen](https://i.imgur.com/gh75gd6.png)
+<img width="199" height="350" alt="WabbitWeather_One" src="https://github.com/user-attachments/assets/81bbd92a-b1bf-4342-a476-1c112ba051c6" />
 
-![TFT screenshot 1](https://www.wabbitwanch.net/arduino/WeatherMate_Display.png)
+<img width="202" height="350" alt="WabbitWeather_Two" src="https://github.com/user-attachments/assets/21aead63-3476-49a4-ad0f-6fc7adfcf599" />
 
-![TFT screenshot 2](http://www.wabbitwanch.net/arduino/6hr_Forecast.png)
+</br>
+<img width="460" height="1024" alt="Wabbit_Weather Web_Interface" src="https://github.com/user-attachments/assets/8dacf061-aa40-4541-8f0a-bf70c9382262" />
 
 
