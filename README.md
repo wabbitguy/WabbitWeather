@@ -31,8 +31,6 @@ https://github.com/Bodmer/JSON_Decoder
 Requires the TFT_eSPI library here:
 https://github.com/Bodmer/TFT_eSPI
 
-The TFT_eSPI_Weather example works with the ESP32 CYD, it displays the weather data on 2.8" TFT screen.  These examples use anti-aliased fonts and newly icons from the AURA project.
-
 <h2>Arduino Steps:</h2>
 
 <ol>
