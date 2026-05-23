@@ -18,12 +18,20 @@ Collects current weather plus daily forecasts.
 * Fixed 12hr midnight clock (reads 12:xx now)...
 * Bottom of display rotates between Sunrise/set-Moon-Cloud-Humidity to POP%-Temp-Dew 6hr forecast
   Display rotates every 15 seconds
-* Web interface makes user adjustments easily done
+* Web interface makes user adjustments easily done including wifi reset so it can be a present to someone
 * Use Nominatim for location when you pin the map (long/lat)
-* Web interface includes WiFi reset so you can gift this to someone already preset
 * Weather icons are from the AURA repository on my GitHub site.
+* Added multilingual support for English, French, German, Dutch, Turkish, Spanish and Portuguese
+* Updated the moonphase for south of equator
+* Added a version number for more accurate tracking of updates
+* Fixed the User_Setup.h file for the ST7789 driver
+* Web Interface now shows colour swatches plus names for selections
 
-AllSettings.h has default user options if you want to set them in advance.
+<i>Keep in mind that some of the translations are lengthy and there isn't a lot of TFT real estate to play with on a 2.8" screen.</i>
+
+<h3>Current Version is 1.3</h3>
+
+AllSettings.h has some default user options if you want to set them in advance. Or, easier, just use a web browser after you select your WiFi network.
 
 Requires the JSON parse library here:
 https://github.com/Bodmer/JSON_Decoder
@@ -38,10 +46,14 @@ https://github.com/Bodmer/TFT_eSPI
   <li>Look in the TFT_eSPI folder to get the User_Setup.h file for the TFT_eSPI library</li>
   <li>User_Setup.h is for ILI9341_2, User_Setup_ST7789 if needed rename to User_Setup.h</li>
   <li>Run the Arduino IDE and open WabbitWeather.ino</li>
+  <li>Update any libraries that you are missing in the IDE</li>
+  <li>Edit NPT_Time.h to select your TimeZone the time.</li>
+  <li>Edit Language.h to select your language</li>
   <li>ESP32 Dev Module - NO OTA (2MB APP/2MB SPIFFS)</li>
-  <li>Select port your CYD is connected to</li>
+  <li>Select port your CYD is connected to, ensure you do NOT have Serial Port enabled for next step</li>
   <li>Ctrl-shift-P or CMD-shift-P "Upload LittleFS..." (this will upload all data folder contents)</li>
-  <li>Compile, update any libraries that need it</li>
+  <li>Compile, upload</li>
+  <li>Enjoy!</li>
 </ol>
 
 
@@ -52,6 +64,7 @@ Latest screen grabs:
 <img width="202" height="350" alt="WabbitWeather_Two" src="https://github.com/user-attachments/assets/21aead63-3476-49a4-ad0f-6fc7adfcf599" />
 
 </br>
-<img width="460" height="1024" alt="Wabbit_Weather Web_Interface" src="https://github.com/user-attachments/assets/8dacf061-aa40-4541-8f0a-bf70c9382262" />
+<img width="282" height="696" alt="WabbitWeather_SS" src="https://github.com/user-attachments/assets/a7ca682d-38ec-48a5-82ea-de00100a46ba" />
+
 
 
