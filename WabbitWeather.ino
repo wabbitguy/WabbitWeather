@@ -4,12 +4,7 @@
 //  This sketch is compatible with the ESP8266
 
 //                           >>>  IMPORTANT  <<<
-//         Modify setup in All_Settings.h tab to configure your location etc
-
-//                >>>  EVEN MORE IMPORTANT TO PREVENT CRASHES <<<
-//>>>>>>  For ESP8266 set SPIFFS to at least 2Mbytes before uploading files  <<<<<<
-
-//  ESP8266/ESP32 pin connections to the TFT are defined in the TFT_eSPI library.
+// Modify setup in All_Settings.h tab to configure your location or use the web interface
 
 //  Original by Daniel Eichhorn, see license at end of file.
 
@@ -32,7 +27,6 @@
 
 // Modifications to use Open Meteo by WabbitGuy (Mel) more at end of this file
 
-
 #include <FS.h>
 #include <LittleFS.h>
 #include <WebServer.h>
@@ -41,6 +35,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 //
+#define WABBIT_VERSION "Version: 1.3"
 //
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -48,7 +43,8 @@
 #include <Arduino.h>
 
 #include <SPI.h>
-#include <TFT_eSPI.h>  // https://github.com/Bodmer/TFT_eSPI
+#include <TFT_eSPI.h>             // https://github.com/Bodmer/TFT_eSPI
+#include <XPT2046_Touchscreen.h>  // touch screen function
 
 // Additional functions
 #include "GfxUi.h"  // Attached to this sketch
@@ -58,7 +54,10 @@
 #include <WiFiManager.h>
 
 // check All_Settings.h for adapting to your needs
+// #include "All_Settings.h"
 #include "All_Settings.h"
+#include "Language.h"  // language you want to use
+#include "Translation.h"
 
 #include <JSON_Decoder.h>  // https://github.com/Bodmer/JSON_Decoder
 
@@ -101,6 +100,15 @@ boolean runBdcOnce = false;  // only need a location once..
 
 #define BL_DAY 255  // full brightness during daylight
 
+#define XPT2046_IRQ 36   // T_IRQ
+#define XPT2046_MOSI 32  // T_DIN
+#define XPT2046_MISO 39  // T_OUT
+#define XPT2046_CLK 25   // T_CLK
+#define XPT2046_CS 33    // T_CS
+
+SPIClass touchscreenSPI = SPIClass(VSPI);
+XPT2046_Touchscreen touchscreen(XPT2046_CS, XPT2046_IRQ);
+
 #define SCREEN_W 240
 #define SCREEN_H 320
 /***************************************************************************************
@@ -129,8 +137,9 @@ void handleHourlyFrame();
 void configModeCallback(WiFiManager *myWiFiManager);
 void handleTempRangeColour(uint16_t theVal);
 void handlePrecipRange(uint16_t theVal);
-void findTheLocation();  // find the location based on long/lat
-void updateBacklight();  // handles the display dimming at night
+void findTheLocation();   // find the location based on long/lat
+void updateBacklight();   // handles the display dimming at night
+void showSplashScreen();  // shows the credits and version
 
 /***************************************************************************************
 **                          Setup
@@ -138,7 +147,7 @@ void updateBacklight();  // handles the display dimming at night
 void setup() {
   Serial.begin(115200);
 
-  tft.begin();
+  tft.init();
   tft.fillScreen(TFT_BLACK);
 
   ledcAttach(TFT_BL, TFT_BL_FREQ, TFT_BL_RES);
@@ -175,10 +184,10 @@ void setup() {
   tft.setTextDatum(BC_DATUM);  // Bottom Centre datum
   tft.setTextColor(TFT_GOLD, TFT_BLACK);
 
-  tft.drawString("Original by: blog.squix.org", 120, 260);
-  tft.drawString("Adapted by: Bodmer", 120, 280);
+  tft.drawString(creditOriginal, 120, 260);
+  tft.drawString(creditBodmer, 120, 280);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.drawString("Open-Meteo by: Wabbitguy", 120, 300);
+  tft.drawString(creditWabbit, 120, 300);
 
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
@@ -196,7 +205,7 @@ void setup() {
   tft.setTextDatum(BC_DATUM);
   tft.setTextPadding(240);        // Pad next drawString() text to full width to over-write old text
   tft.drawString(" ", 120, 220);  // Clear line above using set padding width
-  tft.drawString("Connected to WiFi", 120, 244);
+  tft.drawString(bootConnectedWifi, 120, 240);
   delay(1000);
   //
   // Fetch the time
@@ -216,7 +225,7 @@ void setup() {
   tft.setTextDatum(BC_DATUM);
   tft.setTextPadding(240);        // Pad next drawString() text to full width to over-write old text
   tft.drawString(" ", 120, 220);  // Clear line above using set padding width
-  tft.drawString("Fetching weather data...", 120, 240);
+  tft.drawString(bootFetchingWeather, 120, 240);
   delay(2000);
   //
   // WiFi.hostname(HOSTNAME);  //
@@ -232,6 +241,11 @@ void setup() {
   // LittleFS.remove(CONFIG_FILE);  // just for testing
   loadConfig();
   startWebConfig();
+
+  // Init touchscreen
+  touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+  touchscreen.begin(touchscreenSPI);
+  touchscreen.setRotation(0);
 }
 
 /***************************************************************************************
@@ -293,6 +307,12 @@ void loop() {
     drawTime();         // redraw clock immediately without waiting for next minute
     updateBacklight();  // change the backlight if needed
   }
+
+  if (touchscreen.tirqTouched() && touchscreen.touched()) {
+    touchscreen.getPoint();                   // clear the IRQ
+    while (touchscreen.touched()) delay(10);  // wait for finger up
+    showSplashScreen();
+  }
 }
 //
 /***************************************************************************************
@@ -309,10 +329,10 @@ void updateData() {
   //
   tft.loadFont(AA_FONT_SMALL, LittleFS);
 
-  if (booted) drawProgress(20, "Updating time...");
+  if (booted) drawProgress(20, bootUpdatingTime);
   else fillSegment(22, 22, 0, (int)(20 * 3.6), 16, TFT_NAVY);
 
-  if (booted) drawProgress(50, "Updating conditions...");
+  if (booted) drawProgress(50, bootUpdatingConditions);
   else fillSegment(22, 22, 0, (int)(50 * 3.6), 16, TFT_NAVY);
 
   // Create the structures that hold the retrieved weather
@@ -348,7 +368,7 @@ void updateData() {
   printWeather();  // For debug, turn on output with #define SERIAL_MESSAGES
 
   if (booted) {
-    drawProgress(100, "Done...");
+    drawProgress(100, bootDone);
     delay(2000);
     tft.fillScreen(TFT_BLACK);
   } else {
@@ -425,7 +445,8 @@ void drawTime() {
 
   if (show24Hour == true) {  // we want to show 24 hour time?
     if (hour(local_time) < 10) timeNow += "0";
-  } else {  // we want to show normal time 12 hour format
+    timeNow += hour(local_time);  // 24 hr time
+  } else {                        // we want to show normal time 12 hour format
     if (hour(local_time) > 12) {
       timeNow += hour(local_time) - 12;  // make it a normal time
     } else {
@@ -455,7 +476,7 @@ void drawTime() {
 ***************************************************************************************/
 void drawCurrentWeather() {
   time_t local_time = (*tz).toLocal(now(), &tcr);
-  String date = "Updated: " + strDate(local_time);
+  String date = String(updatedStr) + strDate(local_time);
 
   int x, y, uvMax, temp, theWidth;  // used for drawing the UVindex
   uint16_t theColour;
@@ -468,8 +489,7 @@ void drawCurrentWeather() {
 
   String weatherIcon = "";
 
-  String currentSummary = current->main;
-  currentSummary.toLowerCase();
+  String currentSummary = wmoMain(current->id);
 
   weatherIcon = getMeteoconIcon(current->id, true);
 
@@ -478,7 +498,8 @@ void drawCurrentWeather() {
   //Serial.print("Icon draw time = "); Serial.println(millis()-dt);
 
   // Weather Text
-  weatherText = current->description;
+  weatherText = wmoDescription(current->id);
+
 
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
@@ -495,16 +516,16 @@ void drawCurrentWeather() {
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.setTextDatum(TR_DATUM);
   tft.setTextPadding(0);
-  if (units == "metric") tft.drawString("oC", 237, 105);
-  else tft.drawString("oF", 237, 105);
+  if (units == "metric") tft.drawString(tempMetric, 237, 105);
+  else tft.drawString(tempImperial, 237, 105);
 
   //Temperature large digits added in updateData() to save swapping font here
 
   tft.setTextColor(labelColour, TFT_BLACK);
   weatherText = (uint16_t)current->wind_speed;
 
-  if (units == "metric") weatherText += " m/s";
-  else weatherText += " mph";
+  if (units == "metric") weatherText += windMetric;
+  else weatherText += windImperial;
 
   tft.setTextDatum(TC_DATUM);
   tft.setTextPadding(tft.textWidth("888 m/s"));  // Max string length?
@@ -513,10 +534,10 @@ void drawCurrentWeather() {
   if (showBarometric) {
     if (units == "imperial") {
       weatherText = current->pressure;
-      weatherText += " in";
+      weatherText += pressImperial;
     } else {
       weatherText = (uint16_t)current->pressure;
-      weatherText += " hPa";
+      weatherText += pressMetric;
     }
 
     tft.setTextDatum(TR_DATUM);
@@ -678,12 +699,12 @@ void handleHourlyFrame() {
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
   tft.setTextPadding(tft.textWidth("Temp:"));
-  tft.drawString("Pop%:", theX - 12, theY);  // line labels
-  tft.drawString("Temp:", theX - 12, theY + theOffsetY);
-  tft.drawString(" Dew:", theX - 12, theY + (theOffsetY * 2));
+  tft.drawString(popLabelStr, theX - 12, theY);  // line labels
+  tft.drawString(tempLabelStr, theX - 12, theY + theOffsetY);
+  tft.drawString(dewLabelStr, theX - 12, theY + (theOffsetY * 2));
   tft.setTextColor(labelColour, TFT_BLACK);
   tft.setTextDatum(BC_DATUM);
-  tft.drawString("6Hr Forecast", 120, theY - 20);
+  tft.drawString(forecastTitleStr, 120, theY - 20);
   tft.setTextDatum(BL_DATUM);
   //
   drawSeparator(260);  // top of the info
@@ -759,11 +780,14 @@ void drawAstronomy() {
   uint8_t m = month(local_time);
   uint8_t d = day(local_time);
   uint8_t h = hour(local_time);
-  int ip;
+  int ip, xPos;
   uint8_t icon = moon_phase(y, m, d, h, &ip);
 
+  // draw the phase of the moon from the geolocation
   tft.drawString(moonPhase[ip], 120, 319);
-  ui.drawBmp("/moon/moonphase_L" + String(icon) + ".bmp", 120 - 30, 318 - 16 - 60);
+  bool southernHemisphere = latitude.toFloat() < 0.0;
+  String moonHemi = southernHemisphere ? "R" : "L";
+  ui.drawBmp("/moon/moonphase_" + moonHemi + String(icon) + ".bmp", 120 - 30, 318 - 16 - 60);
   //tft.fillCircle(120, 272, 30, TFT_WHITE);  // same centre and radius as the 60x60 BMP (testing)
 
   tft.setTextDatum(BC_DATUM);
@@ -774,9 +798,10 @@ void drawAstronomy() {
   // Add Rise:/Set: labels
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(astrologyColour, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth("Set:"));
-  tft.drawString("Rise:", 43, 290);
-  tft.drawString("Set:", 43, 305);
+  tft.setTextPadding(tft.textWidth(riseStr));
+  show24Hour ? xPos = 34 : xPos = 43;
+  tft.drawString(riseStr, xPos, 290);  // spacing
+  tft.drawString(setStr, xPos, 305);
 
   // tft.setTextDatum(BR_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1094,15 +1119,14 @@ uint32_t daySeconds(time_t unixTime) {
 **  Convert Unix time to a local date + time string "Oct 16 17:18", ends with newline
 ***************************************************************************************/
 String strDate(time_t unixTime) {
-  // Open-Meteo returns local time already — no tz conversion needed
   String localDate = "";
-  localDate += monthShortStr(month(unixTime));
+  localDate += shortMonth[month(unixTime) - 1];  // was monthShortStr(month(unixTime))
   localDate += " ";
   localDate += day(unixTime);
   localDate += " " + strTime(unixTime);
   return localDate;
-}
-//
+}  //
+
 void drawWiFiQuality() {
   const byte numBars = 5;        // set the number of total bars to display
   const byte barWidth = 3;       // set bar width, height in pixels
@@ -1174,38 +1198,69 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   delay(2000);
 }
 
-//uses the long and lat variables to find the city location name
 void findTheLocation() {
-  String temp;
-  // Serial.println("BCD IN");
-  //bool BDCparsed;
   if (runBdcOnce == false) {
-    BDCcurrent = new BDC_current;  // create the instance
-    bool BDCparsed = bcd.getBDCLocation(BDCcurrent, latitude, longitude, language);
+    BDCcurrent = new BDC_current;
+    bool BDCparsed = bcd.getBDCLocation(BDCcurrent, latitude, longitude, NOMINATIM_LANG);
     if (BDCparsed) {
-      theCityLocation = BDCcurrent->city;                                    // + ", " + temp;// Vancouver, BC for example
-      delete BDCcurrent;                                                     // and then free up the memory
-      runBdcOnce = true;                                                     // we only need this info once
-      if (theCityLocation.length() > 26) theCityLocation = "Local Weather";  // when we get back a long name
+      if (BDCcurrent->city.isEmpty() && !BDCcurrent->locality.isEmpty())
+        BDCcurrent->city = BDCcurrent->locality;
+
+      theCityLocation = BDCcurrent->city;
+      delete BDCcurrent;
+      runBdcOnce = true;
+      if (theCityLocation.length() > 26) theCityLocation = "Local Weather";
     }
   }
-  // Serial.println("BCD OUT");
 }
 
 void updateBacklight() {
+  uint8_t targetBrightness;
+
   if (autoDimDusk) {
     time_t local_time = (*tz).toLocal(now(), &tcr);
     uint32_t currentSecond = (hour(local_time) * 3600) + (minute(local_time) * 60) + second(local_time);
-    if (currentSecond >= sunrise && currentSecond < sunset) {
-      ledcWrite(TFT_BL, BL_DAY);
-    } else {
-      ledcWrite(TFT_BL, blDusk);
-    }
+    targetBrightness = (currentSecond >= sunrise && currentSecond < sunset) ? BL_DAY : blDusk;
   } else {
-    ledcWrite(TFT_BL, BL_DAY);
+    targetBrightness = BL_DAY;
+  }
+
+  if (targetBrightness != ledcRead(TFT_BL)) {
+    ledcWrite(TFT_BL, targetBrightness);
   }
 }
 
+void showSplashScreen() {
+  tft.fillScreen(TFT_BLACK);
+  tft.setSwapBytes(false);
+  if (LittleFS.exists("/splash/OpenMeteo.jpg") == true) ui.drawJpeg("/splash/OpenMeteo.jpg", 0, 40);  // 240 x 124
+  tft.loadFont(AA_FONT_SMALL, LittleFS);
+  tft.setTextDatum(BC_DATUM);  // Bottom Centre datum
+  tft.setTextColor(TFT_GOLD, TFT_BLACK);
+
+  tft.drawString(creditOriginal, 120, 220);
+  tft.drawString(creditBodmer, 120, 240);
+  tft.setTextColor(TFT_GREEN, TFT_BLACK);
+  tft.drawString(creditWabbit, 120, 260);
+
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.drawString(WABBIT_VERSION, 120, 280);
+
+  // Wait for touch or 15 second timeout then return to main display
+  uint32_t start = millis();
+  while (millis() - start < 15000) {
+    if (touchscreen.tirqTouched() && touchscreen.touched()) {
+      touchscreen.getPoint();                   // clear the IRQ
+      while (touchscreen.touched()) delay(10);  // wait for finger up
+      break;
+    }
+    delay(50);
+  }
+  tft.unloadFont();
+  booted = true;              // force full redraw on return
+                              //  tft.setSwapBytes(false);
+  tft.fillScreen(TFT_BLACK);  // get rid of everything
+}
 /**The MIT License (MIT)
   Copyright (c) 2015 by Daniel Eichhorn
   Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1258,4 +1313,6 @@ Added thresholds for POP% ranges with selectable colours
 Added UVindex (current)
 Added display dimming for Sunrise/Sunset
 Full HTML browser support for user adjustable settings (including long/lat)
+Added multilingual support for English, French, German, Turkish, Spanish, Dutch, Portuguese
+Added flipped MoonPhase icons for south of equator
 */

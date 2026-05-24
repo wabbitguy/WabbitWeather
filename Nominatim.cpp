@@ -65,6 +65,7 @@ String url = "https://" + String(NOM_HOST)
 bool BDC_location::parseBDCRequest(String url) {
 
   uint32_t dt = millis();
+//Serial.println("Nominatim URL: " + url);
 
   // and in parseBDCRequest():
   WiFiClientSecure client;
@@ -245,94 +246,22 @@ void BDC_location::value(const char *val) {
 ** Nominatim may use "town" or "village" instead — all are checked below.
 ***************************************************************************************/
 void BDC_location::fullDataSet(const char *val) {
-
   String value = val;
 
-// #ifdef SHOW_BDCJSON
-  // Serial.print("parent: "); Serial.print(BDCcurrentParent);
-  // Serial.print(" key: ");   Serial.print(BDCcurrentKey);
-  // Serial.print(" value: "); Serial.println(value);
-// #endif
+// Serial.print("parent: "); Serial.print(BDCcurrentParent);
+// Serial.print(" key: ");   Serial.print(BDCcurrentKey);
+// Serial.print(" value: "); Serial.println(value);
 
-  // Nominatim's top-level "name" field is always the most specific
-  // correct human-readable name for the location regardless of type
-  // (city, suburb, hamlet, neighbourhood, quarter etc.)
   if (BDCcurrentParent == "" || BDCcurrentParent == "reverse") {
     if      (BDCcurrentKey == "lat")  BDCcurrent->latitude  = value.toFloat();
     else if (BDCcurrentKey == "lon")  BDCcurrent->longitude = value.toFloat();
-    else if (BDCcurrentKey == "name") BDCcurrent->city      = value;
+    else if (BDCcurrentKey == "name" && !value.isEmpty()) BDCcurrent->locality = value;
+  }
+
+  if (BDCcurrentParent == "address") {
+    if      (BDCcurrentKey == "city"    && BDCcurrent->city.isEmpty()) BDCcurrent->city = value;
+    else if (BDCcurrentKey == "town"    && BDCcurrent->city.isEmpty()) BDCcurrent->city = value;
+    else if (BDCcurrentKey == "village" && BDCcurrent->city.isEmpty()) BDCcurrent->city = value;
+    else if (BDCcurrentKey == "hamlet"  && BDCcurrent->city.isEmpty()) BDCcurrent->city = value;
   }
 }
-
-
-// void BDC_location::fullDataSet(const char *val) {
-
-//   String value = val;
-
-// //#ifdef SHOW_BDCJSON
-//   // Serial.print("parent: "); Serial.print(BDCcurrentParent);
-//   // Serial.print(" key: ");   Serial.print(BDCcurrentKey);
-//   // Serial.print(" value: "); Serial.println(value);
-// //#endif
-
-//   // ── Top-level fields ───────────────────────────────────────────────────
-//   if (BDCcurrentParent == "" || BDCcurrentParent == "reverse") {
-//     if      (BDCcurrentKey == "lat")          BDCcurrent->latitude  = value.toFloat();
-//     else if (BDCcurrentKey == "lon")          BDCcurrent->longitude = value.toFloat();
-//     else if (BDCcurrentKey == "name")         BDCcurrent->city      = value; // best name for small settlements
-//     // don't store display_name in locality — it's too long for display
-//     return;
-//   }
-
-//   // ── address sub-object ─────────────────────────────────────────────────
-//   if (BDCcurrentParent == "address") {
-
-//     // City — hamlet/village/town take priority for small settlements
-//     // city overwrites only if nothing better already set
-//     // if      (BDCcurrentKey == "hamlet")                              BDCcurrent->city = value; // always wins
-//     // else if (BDCcurrentKey == "village")                             BDCcurrent->city = value; // always wins
-//     // else if (BDCcurrentKey == "town"
-//     //       && BDCcurrent->city.isEmpty())                             BDCcurrent->city = value;
-//     // else if (BDCcurrentKey == "city"
-//     //       && BDCcurrent->city.isEmpty())                             BDCcurrent->city = value;
-//     // else if (BDCcurrentKey == "municipality"
-//     //       && BDCcurrent->city.isEmpty())                             BDCcurrent->city = value;
-
-// // City fallback chain — order matters!
-// if      (BDCcurrentKey == "hamlet")            BDCcurrent->city = value; // always wins
-// else if (BDCcurrentKey == "village")           BDCcurrent->city = value; // always wins
-// else if (BDCcurrentKey == "town"
-//       && BDCcurrent->city.isEmpty())           BDCcurrent->city = value;
-// else if (BDCcurrentKey == "city"
-//       && BDCcurrent->city.isEmpty())           BDCcurrent->city = value; // only if nothing better
-// else if (BDCcurrentKey == "municipality"
-//       && BDCcurrent->city.isEmpty())           BDCcurrent->city = value;
-
-//     // Locality — suburb/neighbourhood/hamlet
-//     else if (BDCcurrentKey == "suburb")                              BDCcurrent->locality = value;
-//     else if (BDCcurrentKey == "neighbourhood"
-//           && BDCcurrent->locality.isEmpty())                         BDCcurrent->locality = value;
-//     else if (BDCcurrentKey == "quarter"
-//           && BDCcurrent->locality.isEmpty())                         BDCcurrent->locality = value;
-//     else if (BDCcurrentKey == "hamlet"
-//           && BDCcurrent->locality.isEmpty())                         BDCcurrent->locality = value;
-
-//     // Province / state
-//     else if (BDCcurrentKey == "state")                               BDCcurrent->principalSubdivision = value;
-//     else if (BDCcurrentKey == "region"
-//           && BDCcurrent->principalSubdivision.isEmpty())             BDCcurrent->principalSubdivision = value;
-
-//     // Country
-//     else if (BDCcurrentKey == "country")                             BDCcurrent->countryName = value;
-//     else if (BDCcurrentKey == "country_code") {
-//       String cc = value;
-//       cc.toUpperCase();
-//       BDCcurrent->countryCode = cc;
-//     }
-
-//     // Postcode
-//     else if (BDCcurrentKey == "postcode")                            BDCcurrent->postcode = value;
-
-//     return;
-//   }
-// }

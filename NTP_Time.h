@@ -19,22 +19,10 @@
 WiFiUDP udp;
 
 //====================================================================================
-//                                  Settings
+//                                TimeZone Settings
 //====================================================================================
 
-#ifdef ESP32 // Temporary fix, ESP8266 fails to communicate with some servers...
-// Try to use pool url instead so the server IP address is looked up from those available
-// (use a pool server in your own country to improve response time and reliability)
-//const char* ntpServerName = "time.nist.gov";
 const char* ntpServerName = "pool.ntp.org";
-//const char* ntpServerName = "time.google.com";
-#else
-// Try to use pool url instead so the server IP address is looked up from those available
-// (use a pool server in your own country to improve response time and reliability)
-// const char* ntpServerName = "time.nist.gov";
-const char* ntpServerName = "pool.ntp.org";
-//const char* ntpServerName = "time.google.com";
-#endif
 
 // Try not to use hard-coded IP addresses which might change, you can if you want though...
 //IPAddress timeServerIP(129, 6, 15, 30);   // time-c.nist.gov NTP server
@@ -77,16 +65,21 @@ Timezone usMT(usMDT, usMST);
 // Zone reference "usAZ" Arizona is US Mountain Time Zone but does not use DST
 Timezone usAZ(usMST, usMST);
 
-// Zone reference "usPT" US Pacific Time Zone (Las Vegas, Los Angeles) BC is now PDT
-TimeChangeRule bcPDT = {"PDT", Second, dowSunday, Mar, 2, -420};
+// Zone reference "usPT" US Pacific Time Zone (Las Vegas, Los Angeles)
+TimeChangeRule usPDT = {"PDT", Second, dowSunday, Mar, 2, -420};
 TimeChangeRule usPST = {"PST", First, dowSunday, Nov, 2, -480};
-Timezone usPT(bcPDT, bcPDT);
+Timezone usPT(usPDT, usPST);// this is the default for Birtish Columbia
+
+// Zone reference "bcPT" British Coloumbia is now PDT
+TimeChangeRule bcPDT = {"PDT", Second, dowSunday, Mar, 2, -420};
+TimeChangeRule bcPST = {"PST", First, dowSunday, Nov, 2, -480};
+Timezone bcPT(bcPDT, bcPDT);// this is the default for Birtish Columbia
 
 
 //====================================================================================
 //                                  Variables
 //====================================================================================
-Timezone* timezones[] = {&usPT, &usPT}; // See NTP_Time.h tab for other "Zone references", UK, usMT etc
+Timezone* timezones[] = {&bcPT, &bcPT}; // See NTP_Time.h tab for other "Zone references", UK, usMT etc
 Timezone* tz;// pointer to the timezone
 TimeChangeRule*  tcr;   // Pointer to the time change rule, use to get the TZ abbrev, e.g. "GMT"
 

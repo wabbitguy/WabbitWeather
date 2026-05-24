@@ -18,12 +18,7 @@
 
 //  Close the IDE and open again to see the new menu option.
 
-// You can change the number of hours and days for the forecast in the
-// "User_Setup.h" file inside the OpenWeather library folder.
-// By default this is 6 hours (can be up to 48) and 5 days
-// (can be up to 8 days = today plus 7 days). This sketch requires
-// at least 5 days of forecast. Forecast hours can be set to 1 as
-// the hourly forecast data is not used in this sketch.
+/* ----- Time Zone settings for your location are in NPT_Time.h --------*/
 
 //////////////////////////////
 // Setttings defined below
@@ -40,17 +35,17 @@ const int UPDATE_INTERVAL_SECS = 15 * 60UL;  // 15 minutes
 
 // Pins for the TFT interface are defined in the User_Config.h file inside the TFT_eSPI library
 
-// For language codes for BDC response
-const String language = "en";  // Default language = en = English
+// // For language codes for BDC response
+// const String language = "en";  // Default language = en = English
 
 // Short day of week abbreviations used in 4 day forecast (change to your language)
-const String shortDOW[8] = { "???", "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+// const String shortDOW[8] = { "???", "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
 
-// Change the labels to your language here:
-const char sunStr[] = "Sun";
-const char cloudStr[] = "Cloud";
-const char humidityStr[] = "Humidity";
-const String moonPhase[8] = { "New", "Waxing", "1st qtr", "Waxing", "Full", "Waning", "Last qtr", "Waning" };
+// // Change the labels to your language here:
+// const char sunStr[] = "Sun";
+// const char cloudStr[] = "Cloud";
+// const char humidityStr[] = "Humidity";
+// const String moonPhase[8] = { "New", "Waxing", "1st qtr", "Waxing", "Full", "Waning", "Last qtr", "Waning" };
 
 uint32_t sunrise, sunset;  // where the trigger points are for autodim
 
@@ -65,8 +60,9 @@ uint32_t sunrise, sunset;  // where the trigger points are for autodim
 String units = "imperial";
 
 // Set both longitude and latitude to at least 4 decimal places
-String latitude = "49.2756";     // 90.0000 to -90.0000 negative for Southern hemisphere
-String longitude = "-123.1041";  // 180.000 to -180.000 negative for West
+String latitude = "49.2747";     // 90.0000 to -90.0000 negative for Southern hemisphere
+String longitude = "-123.1038";  // 180.000 to -180.000 negative for West
+
 //
 bool show24Hour = false;            // display a 24 or 12 hour clock
 bool autoDimDusk = true;            // daytime is orange clock numbers, nighttime is dark grey
@@ -78,7 +74,7 @@ bool show6hrForecast = true;        // show 6hr forecast on bottom of the displa
 // Temp range colour display control, in metric values for high and low are 29C, 4C
 // ***********
 uint8_t highTempVal = 85;            // This temp and higher will be hightempcolour, lower will be midcolour
-uint8_t lowTempVal = 40;              // temps lower than this will be different colour
+uint8_t lowTempVal = 40;             // temps lower than this will be different colour
 uint32_t highTempColour = TFT_RED;   // colour used if temp is above highTempVal
 uint32_t midTempColour = TFT_GREEN;  // colour used if temp is less then highTempVal but greater than lowtempVal
 uint32_t lowTempColour = TFT_BLUE;   // colour used if less than lowTempValue
@@ -95,6 +91,6 @@ uint32_t astrologyColour = TFT_YELLOW;  // for the astrology labels
 String theCityLocation = "Unknown";  // where the long and lat point to
 
 uint8_t blDusk = 30;  // backlight brightness at night (0-255)
-//
+
 // End of user settings
 //////////////////////////////

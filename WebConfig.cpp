@@ -1,4 +1,4 @@
-// WebConfig.cpp — Wabbitwx web configuration portal
+// WebConfig.cpp — WabbitWeather web configuration portal
 // All globals (units, latitude, etc.) are visible because Arduino
 // compiles all .ino/.cpp files in the sketch folder together.
 // Do NOT include All_Settings.h here — it would cause duplicate definitions.
@@ -7,15 +7,15 @@
 #include <ESPmDNS.h>
 #include <LittleFS.h>
 #include <WiFi.h>
-#include <WiFiManager.h>  // add this
+#include <WiFiManager.h>
 #include "WebConfig.h"
+#include "Language.h"
+#include "Translation.h"
 
 // ── Web server instance ────────────────────────────────────────────────────
 static WebServer server(80);
 
 // ── Forward declarations of globals from All_Settings.h ───────────────────
-// These are defined in All_Settings.h which is included by the .ino.
-// Declaring them extern here lets WebConfig.cpp read and write them.
 extern String units;
 extern String latitude;
 extern String longitude;
@@ -38,9 +38,6 @@ extern uint32_t lowPOPColour;
 extern uint32_t labelColour;
 extern uint32_t astrologyColour;
 extern uint8_t blDusk;
-
-// Defined in your .ino globals section — add this line there:
-// volatile bool configUpdated = false;
 extern volatile bool configUpdated;
 
 // ===========================================================================
@@ -50,7 +47,7 @@ extern volatile bool configUpdated;
 void loadConfig() {
   if (!LittleFS.exists(CONFIG_FILE)) {
     Serial.println("WebConfig: no config file, writing defaults");
-    saveConfig();  // write current (default) values as the config
+    saveConfig();
     return;
   }
 
@@ -87,7 +84,7 @@ void loadConfig() {
     else if (key == "lowPOPColour")          lowPOPColour          = colourFromName(value);
     else if (key == "labelColour")           labelColour           = colourFromName(value);
     else if (key == "astrologyColour")       astrologyColour       = colourFromName(value);
-    else if (key == "blDusk") blDusk = value.toInt();
+    else if (key == "blDusk")               blDusk                = value.toInt();
   }
   f.close();
   Serial.println("WebConfig: loaded " CONFIG_FILE);
@@ -129,21 +126,54 @@ void saveConfig() {
 // ===========================================================================
 
 static String colourSelect(const String& name, uint32_t currentValue) {
-  String html = "<select name='" + name + "'>";
+  // Find current colour name and CSS
+  String curName = "Unknown";
+  String curCss  = "rgb(255,255,255)";
+  for (uint8_t i = 0; i < TFT_COLOUR_COUNT; i++) {
+    if (TFT_COLOURS[i].value == currentValue) {
+      curName = TFT_COLOURS[i].name;
+      uint32_t c = TFT_COLOURS[i].value;
+      uint8_t r = ((c >> 11) & 0x1F) << 3;
+      uint8_t g = ((c >>  5) & 0x3F) << 2;
+      uint8_t b = ((c >>  0) & 0x1F) << 3;
+      char css[24];
+      snprintf(css, sizeof(css), "rgb(%d,%d,%d)", r, g, b);
+      curCss = String(css);
+      break;
+    }
+  }
+
+  String id = "cs_" + name;
+
+  // Hidden input carries the value for form submission
+  String html = "<div class='cs' id='" + id + "'>"
+                "<input type='hidden' name='" + name + "' id='" + id + "_val' value='" + curName + "'>"
+                "<div class='cs-sel' onclick='csToggle(\"" + id + "\")'>"
+                "<div class='cs-swatch' style='background:" + curCss + "'></div>"
+                "<span id='" + id + "_lbl'>" + curName + "</span>"
+                "<span style='margin-left:auto;color:var(--muted)'>&#9660;</span>"
+                "</div>"
+                "<div class='cs-drop' id='" + id + "_drop'>";
+
   for (uint8_t i = 0; i < TFT_COLOUR_COUNT; i++) {
     uint32_t c = TFT_COLOURS[i].value;
     uint8_t r = ((c >> 11) & 0x1F) << 3;
     uint8_t g = ((c >>  5) & 0x3F) << 2;
     uint8_t b = ((c >>  0) & 0x1F) << 3;
-    char css[24];
-    snprintf(css, sizeof(css), "rgb(%d,%d,%d)", r, g, b);
     bool sel = (TFT_COLOURS[i].value == currentValue);
-    html += "<option value='" + String(TFT_COLOURS[i].name) + "'"
-          + (sel ? " selected" : "")
-          + " style='background:#000;color:" + css + ";font-weight:600;'>"
-          + TFT_COLOURS[i].name + "</option>";
+    String cname = TFT_COLOURS[i].name;
+    String rs = String(r), gs = String(g), bs = String(b);
+
+    html += "<div class='cs-opt" + String(sel ? " sel" : "") + "' "
+            "onclick='csSelect(\"" + id + "\",\"" + cname + "\"," +
+            "&quot;rgb(" + rs + "," + gs + "," + bs + ")&quot;)'>"
+            "<div class='cs-swatch' style='background:rgb(" + rs + "," + gs + "," + bs + ")'></div>"
+            "<span style='color:rgb(" + rs + "," + gs + "," + bs + ");font-weight:600'>" +
+            cname + "</span>"
+            "</div>";
   }
-  html += "</select>";
+
+  html += "</div></div>";
   return html;
 }
 
@@ -194,10 +224,9 @@ static String buildPage(bool saved = false) {
     "padding:16px;display:flex;flex-direction:column;gap:14px}"
     ".row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}"
     ".row>label:first-child{font-size:14px;flex:1;min-width:150px}"
-    "input[type=text],input[type=number],select{background:#1a1a1a;border:1px solid var(--bdr);"
+    "input[type=text],input[type=number]{background:#1a1a1a;border:1px solid var(--bdr);"
     "border-radius:6px;color:var(--txt);font-size:14px;padding:7px 10px;width:100%;max-width:210px}"
-    "input:focus,select:focus{outline:none;border-color:var(--accent)}"
-    "select{cursor:pointer}"
+    "input:focus{outline:none;border-color:var(--accent)}"
     ".rg{display:flex;gap:8px}"
     ".rg label{display:flex;align-items:center;gap:6px;background:#1a1a1a;"
     "border:1px solid var(--bdr);border-radius:6px;padding:6px 14px;cursor:pointer;"
@@ -235,107 +264,121 @@ static String buildPage(bool saved = false) {
     "border-radius:7px;font-size:14px;font-weight:600;cursor:pointer}"
     ".mno{background:transparent;border:1px solid var(--muted);color:var(--muted);"
     "padding:9px 22px;border-radius:7px;font-size:14px;cursor:pointer}"
+    ".cs{position:relative;width:100%;max-width:210px}"
+    ".cs-sel{background:#1a1a1a;border:1px solid var(--bdr);border-radius:6px;"
+    "color:var(--txt);font-size:14px;padding:7px 10px;cursor:pointer;"
+    "display:flex;align-items:center;gap:8px;user-select:none}"
+    ".cs-sel:hover{border-color:var(--accent)}"
+    ".cs-swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid #444}"
+    ".cs-drop{display:none;position:absolute;top:100%;left:0;right:0;"
+    "background:#1a1a1a;border:1px solid var(--bdr);border-radius:6px;"
+    "max-height:200px;overflow-y:auto;z-index:999;margin-top:4px}"
+    ".cs-drop.open{display:block}"
+    ".cs-opt{display:flex;align-items:center;gap:8px;padding:7px 10px;"
+    "cursor:pointer;font-size:14px}"
+    ".cs-opt:hover{background:#2a2a2a}"
+    ".cs-opt.sel{background:#0f3460}"
     "@media(max-width:480px){.row{flex-direction:column;align-items:flex-start}"
-    "input[type=text],input[type=number],select{max-width:100%}}"
+    "input[type=text],input[type=number]{max-width:100%}.cs{max-width:100%}}"
     "</style></head><body>");
 
   // Header
-  html += "<header><div><h1>&#9928; WabbitWeather</h1>"
+  html += "<header><div><h1>&#9928; " + String(wcTitle) + "</h1>"
           "<div class='ip'>" + ip + " &nbsp;|&nbsp; wabbitweather.local</div></div>"
           "<button class='wreset' onclick='document.getElementById(\"wm\").classList.add(\"open\")'>"
-          "&#x26A0; WiFi Reset</button></header>";
+          + String(wcWifiResetBtn) + "</button></header>";
 
   // WiFi reset modal
   html += "<div class='mbg' id='wm'><div class='modal'>"
-          "<h3>&#x26A0; Reset WiFi?</h3>"
-          "<p>Erases saved WiFi credentials and reboots into setup mode. "
-          "Reconnect via the WabbitWeather hotspot.</p>"
+          "<h3>" + String(wcWifiResetTitle) + "</h3>"
+          "<p>" + String(wcWifiResetBody) + "</p>"
           "<div class='mbtns'>"
-          "<button class='mok' onclick='window.location=\"/wifireset\"'>Yes, reset</button>"
-          "<button class='mno' onclick='document.getElementById(\"wm\").classList.remove(\"open\")'>Cancel</button>"
+          "<button class='mok' onclick='window.location=\"/wifireset\"'>" + String(wcWifiResetYes) + "</button>"
+          "<button class='mno' onclick='document.getElementById(\"wm\").classList.remove(\"open\")'>" + String(wcWifiResetCancel) + "</button>"
           "</div></div></div>";
 
   html += "<main>";
 
-  // Saved banner
-  if (saved) html += "<div class='saved'>&#10003; Settings saved and applied.</div>";
+  if (saved) html += "<div class='saved'>" + String(wcSaved) + "</div>";
 
   html += "<form method='POST' action='/save'>";
 
   // ── Location ──────────────────────────────────────────────────────────────
-  html += section("Location");
+  html += section(wcSecLocation);
   html += "<div class='card'>"
           "<div id='map'></div>"
           "<div class='cgrid'>"
-          "<div><label style='display:block;font-size:12px;color:var(--muted);margin-bottom:4px'>Latitude</label>"
+          "<div><label style='display:block;font-size:12px;color:var(--muted);margin-bottom:4px'>" + String(wcLatLabel) + "</label>"
           "<input type='text' id='lat' name='latitude' value='" + latitude + "'></div>"
-          "<div><label style='display:block;font-size:12px;color:var(--muted);margin-bottom:4px'>Longitude</label>"
+          "<div><label style='display:block;font-size:12px;color:var(--muted);margin-bottom:4px'>" + String(wcLonLabel) + "</label>"
           "<input type='text' id='lon' name='longitude' value='" + longitude + "'></div>"
           "</div></div>";
 
   // ── Display ───────────────────────────────────────────────────────────────
-  html += section("Display Settings");
+  html += section(wcSecDisplay);
   html += "<div class='card'>";
-  html += "<div class='row'><label>Temperature Units</label>"
+  html += "<div class='row'><label>" + String(wcUnitsLabel) + "</label>"
           "<div class='rg'>"
-          "<label><input type='radio' name='units' value='imperial'" + String(units=="imperial"?" checked":"") + "> Imperial (&deg;F)</label>"
-          "<label><input type='radio' name='units' value='metric'"   + String(units=="metric"  ?" checked":"") + "> Metric (&deg;C)</label>"
+          "<label><input type='radio' name='units' value='imperial'" + String(units=="imperial"?" checked":"") + "> " + String(wcImperial) + "</label>"
+          "<label><input type='radio' name='units' value='metric'"   + String(units=="metric"  ?" checked":"") + "> " + String(wcMetric)   + "</label>"
           "</div></div>";
-html += "<div class='row'>" + toggle("show24Hour",          show24Hour,          "24 hour clock")            + "</div>";
-html += "<div class='row'>" + toggle("autoDimDusk",         autoDimDusk,         "Auto dim at dusk")         + "</div>";
-html += "<div class='row'><label>Night brightness (0-255)</label>"
-        "<div>"
-        "<input type='number' name='blDusk' value='" + String(blDusk) + "' min='0' max='255' style='max-width:90px'>"
-        "<div style='font-size:11px;color:var(--muted);margin-top:4px'>0 = display off, 1 = barely visible</div>"
-        "</div></div>";
-html += "<div class='row'>" + toggle("showBarometric",      showBarometric,      "Show barometric pressure") + "</div>";
-html += "<div class='row'>" + toggle("showPrecipProbability", showPrecipProbability, "Show precip probability") + "</div>";
-html += "<div class='row'>" + toggle("showUVindex",         showUVindex,         "Show UV index")            + "</div>";
-html += "<div class='row'>" + toggle("show6hrForecast",     show6hrForecast,     "Show 6hr forecast")        + "</div>";
-  html += "<div class='row'><label>Weather Headings</label>"     + colourSelect("labelColour",     labelColour)     + "</div>";
-  html += "<div class='row'><label>Astrology Headings</label>" + colourSelect("astrologyColour", astrologyColour) + "</div>";
+  html += "<div class='row'>" + toggle("show24Hour",           show24Hour,           wcClock24)    + "</div>";
+  html += "<div class='row'>" + toggle("autoDimDusk",          autoDimDusk,          wcAutoDim)    + "</div>";
+  html += "<div class='row'><label>" + String(wcNightBright) + "</label>"
+          "<div>"
+          "<input type='number' name='blDusk' value='" + String(blDusk) + "' min='0' max='255' style='max-width:90px'>"
+          "<div style='font-size:11px;color:var(--muted);margin-top:4px'>" + String(wcNightBrightHint) + "</div>"
+          "</div></div>";
+  html += "<div class='row'>" + toggle("showBarometric",       showBarometric,       wcShowBaro)   + "</div>";
+  html += "<div class='row'>" + toggle("showPrecipProbability",showPrecipProbability,wcShowPrecip) + "</div>";
+  html += "<div class='row'>" + toggle("showUVindex",          showUVindex,          wcShowUV)     + "</div>";
+  html += "<div class='row'>" + toggle("show6hrForecast",      show6hrForecast,      wcShow6Hr)    + "</div>";
+  html += "<div class='row'><label>" + String(wcWeatherHeadings) + "</label>" + colourSelect("labelColour",     labelColour)     + "</div>";
+  html += "<div class='row'><label>" + String(wcAstroHeadings)   + "</label>" + colourSelect("astrologyColour", astrologyColour) + "</div>";
+  html += "</div>";
 
   // ── Temperature colours ───────────────────────────────────────────────────
-  html += section("Temperature Threshold Colours");
+  html += section(wcSecTempColours);
   html += "<div class='card'>";
-  html += "<div class='row'><label>High temp threshold (&deg;)</label>"
+  html += "<div class='row'><label>" + String(wcHighTempThresh) + "</label>"
           "<input type='number' name='highTempVal' value='" + String(highTempVal) + "' min='-50' max='150' style='max-width:90px'></div>";
-  html += "<div class='row'><label>Low temp threshold (&deg;)</label>"
+  html += "<div class='row'><label>" + String(wcLowTempThresh)  + "</label>"
           "<input type='number' name='lowTempVal'  value='" + String(lowTempVal)  + "' min='-50' max='150' style='max-width:90px'></div>";
-  html += "<div class='row'><label>High temp colour</label>" + colourSelect("highTempColour", highTempColour) + "</div>";
-  html += "<div class='row'><label>Mid temp colour</label>"  + colourSelect("midTempColour",  midTempColour)  + "</div>";
-  html += "<div class='row'><label>Low temp colour</label>"  + colourSelect("lowTempColour",  lowTempColour)  + "</div>";
+  html += "<div class='row'><label>" + String(wcHighTempColour) + "</label>" + colourSelect("highTempColour", highTempColour) + "</div>";
+  html += "<div class='row'><label>" + String(wcMidTempColour)  + "</label>" + colourSelect("midTempColour",  midTempColour)  + "</div>";
+  html += "<div class='row'><label>" + String(wcLowTempColour)  + "</label>" + colourSelect("lowTempColour",  lowTempColour)  + "</div>";
   html += "</div>";
 
   // ── Precipitation colours ─────────────────────────────────────────────────
-  html += section("Precipitation Threshold Colours");
+  html += section(wcSecPrecipColours);
   html += "<div class='card'>";
-  html += "<div class='row'><label>High precip threshold (%)</label>"
+  html += "<div class='row'><label>" + String(wcHighPrecipThresh) + "</label>"
           "<input type='number' name='highPrecipProb' value='" + String(highPrecipProb) + "' min='0' max='100' style='max-width:90px'></div>";
-  html += "<div class='row'><label>Low precip threshold (%)</label>"
+  html += "<div class='row'><label>" + String(wcLowPrecipThresh)  + "</label>"
           "<input type='number' name='lowPrecipProb'  value='" + String(lowPrecipProb)  + "' min='0' max='100' style='max-width:90px'></div>";
-  html += "<div class='row'><label>High POP colour</label>" + colourSelect("highPOPColour", highPOPColour) + "</div>";
-  html += "<div class='row'><label>Mid POP colour</label>"  + colourSelect("midPOPColour",  midPOPColour)  + "</div>";
-  html += "<div class='row'><label>Low POP colour</label>"  + colourSelect("lowPOPColour",  lowPOPColour)  + "</div>";
+  html += "<div class='row'><label>" + String(wcHighPOPColour) + "</label>" + colourSelect("highPOPColour", highPOPColour) + "</div>";
+  html += "<div class='row'><label>" + String(wcMidPOPColour)  + "</label>" + colourSelect("midPOPColour",  midPOPColour)  + "</div>";
+  html += "<div class='row'><label>" + String(wcLowPOPColour)  + "</label>" + colourSelect("lowPOPColour",  lowPOPColour)  + "</div>";
   html += "</div>";
 
   // ── Actions ───────────────────────────────────────────────────────────────
   html += "<div class='actions'>"
-          "<button type='submit' class='btn bu'>Update &amp; Save</button>"
-          "<button type='button' class='btn bc' onclick='window.location.reload()'>Cancel</button>"
+          "<button type='submit' class='btn bu'>" + String(wcSaveBtn)   + "</button>"
+          "<button type='button' class='btn bc' onclick='window.location.reload()'>" + String(wcCancelBtn) + "</button>"
           "</div>";
 
   html += "</form>";
 
   // ── Map script ────────────────────────────────────────────────────────────
-  html += "<script>"
+ html += "<script>"
           "var lt=parseFloat(document.getElementById('lat').value)||49.154;"
           "var ln=parseFloat(document.getElementById('lon').value)||-122.772;"
           "var map=L.map('map').setView([lt,ln],11);"
           "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{"
           "attribution:'&copy; OpenStreetMap contributors',maxZoom:18}).addTo(map);"
           "var mk=L.marker([lt,ln],{draggable:true}).addTo(map);"
-          "function uc(a,b){document.getElementById('lat').value=a.toFixed(4);"
+          "function uc(a,b){b=((b+180)%360+360)%360-180;"
+          "document.getElementById('lat').value=a.toFixed(4);"
           "document.getElementById('lon').value=b.toFixed(4);}"
           "mk.on('dragend',function(e){var p=mk.getLatLng();uc(p.lat,p.lng);});"
           "map.on('click',function(e){mk.setLatLng(e.latlng);uc(e.latlng.lat,e.latlng.lng);});"
@@ -345,8 +388,27 @@ html += "<div class='row'>" + toggle("show6hrForecast",     show6hrForecast,    
           "document.getElementById('lon').addEventListener('change',function(){"
           "var a=parseFloat(document.getElementById('lat').value),b=parseFloat(this.value);"
           "if(!isNaN(a)&&!isNaN(b)){mk.setLatLng([a,b]);map.setView([a,b]);}});"
+          "function csToggle(id){"
+          "var d=document.getElementById(id+'_drop');"
+          "d.classList.toggle('open');"
+          "document.querySelectorAll('.cs-drop').forEach(function(x){"
+          "if(x.id!==id+'_drop')x.classList.remove('open');});"
+          "}"
+          "function csSelect(id,name,css){"
+          "document.getElementById(id+'_val').value=name;"
+          "document.getElementById(id+'_lbl').textContent=name;"
+          "document.querySelector('#'+id+' .cs-swatch').style.background=css;"
+          "document.getElementById(id+'_drop').classList.remove('open');"
+          "document.querySelectorAll('#'+id+' .cs-opt').forEach(function(x){"
+          "x.classList.remove('sel');"
+          "if(x.querySelector('span:last-child').textContent===name)x.classList.add('sel');});"
+          "}"
+          "document.addEventListener('click',function(e){"
+          "if(!e.target.closest('.cs')){"
+          "document.querySelectorAll('.cs-drop').forEach(function(x){"
+          "x.classList.remove('open');});}});"
           "</script>";
-
+          
   html += "</main></body></html>";
   return html;
 }
@@ -365,7 +427,6 @@ static void handleSave() {
   if (server.hasArg("latitude"))            latitude              = server.arg("latitude");
   if (server.hasArg("longitude"))           longitude             = server.arg("longitude");
 
-  // Checkboxes only appear in POST when checked — absence means false
   show24Hour            = server.hasArg("show24Hour");
   autoDimDusk           = server.hasArg("autoDimDusk");
   showBarometric        = server.hasArg("showBarometric");
@@ -385,10 +446,10 @@ static void handleSave() {
   if (server.hasArg("lowPOPColour"))        lowPOPColour          = colourFromName(server.arg("lowPOPColour"));
   if (server.hasArg("labelColour"))         labelColour           = colourFromName(server.arg("labelColour"));
   if (server.hasArg("astrologyColour"))     astrologyColour       = colourFromName(server.arg("astrologyColour"));
-  if (server.hasArg("blDusk")) blDusk = server.arg("blDusk").toInt();
+  if (server.hasArg("blDusk"))              blDusk                = server.arg("blDusk").toInt();
 
   saveConfig();
-  configUpdated = true;  // signal loop() to refresh display
+  configUpdated = true;
 
   server.sendHeader("Location", "/?saved=1");
   server.send(303);
@@ -398,8 +459,9 @@ static void handleWifiReset() {
   server.send(200, "text/html",
     "<html><body style='background:#121212;color:#e0e0e0;font-family:sans-serif;"
     "display:flex;align-items:center;justify-content:center;height:100vh'>"
-    "<div style='text-align:center'><h2 style='color:#ef5350'>Resetting WiFi...</h2>"
-    "<p>Rebooting. Connect to the <strong>WabbitWeather</strong> hotspot.</p>"
+    "<div style='text-align:center'><h2 style='color:#ef5350'>"
+    + String(wcWifiResetting) +
+    "</h2><p>" + String(wcWifiResetHotspot) + "</p>"
     "</div></body></html>");
   delay(1000);
   WiFiManager wm;
