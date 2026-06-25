@@ -1,10 +1,4 @@
-//  Example from OpenWeather library: https://github.com/Bodmer/OpenWeather
 //  Adapted by Bodmer to use the TFT_eSPI library:  https://github.com/Bodmer/TFT_eSPI
-
-//  This sketch is compatible with the ESP8266
-
-//                           >>>  IMPORTANT  <<<
-// Modify setup in All_Settings.h tab to configure your location or use the web interface
 
 //  Original by Daniel Eichhorn, see license at end of file.
 
@@ -35,7 +29,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 //
-#define WABBIT_VERSION "Version: 1.3"
+#define WABBIT_VERSION "Version: 1.5.0"
 //
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -54,7 +48,6 @@
 #include <WiFiManager.h>
 
 // check All_Settings.h for adapting to your needs
-// #include "All_Settings.h"
 #include "All_Settings.h"
 #include "Language.h"  // language you want to use
 #include "Translation.h"
@@ -64,7 +57,7 @@
 #include "OpenMeteo.h"  // Latest here: https://github.com/Bodmer/OpenWeather
 #include "Nominatim.h"  // for returning city from long.lat
 
-#include "NTP_Time.h"   // Attached to this sketch, see that tab for library needs
+#include "NTP_Time.h"   // NTP sync + toLocal() helper + fetchTZOffset()
 #include "MoonPhase.h"  // phase of the moon
 
 #include "WebConfig.h"
@@ -87,6 +80,11 @@ BDC_location bcd;
 BDC_current *BDCcurrent;  // struct that holds the location data
 
 boolean booted = true;
+
+bool forecastPage = false;       // false = days 1-4 (default), true = days 5-8
+uint32_t forecastPageTimer = 0;  // millis() timestamp when forecastPage was set true
+
+bool altLocation = false;  // false = primary location, true = alternate location
 
 GfxUi ui = GfxUi(&tft);  // Jpeg and bmpDraw functions TODO: pull outside of a class
 
@@ -137,9 +135,10 @@ void handleHourlyFrame();
 void configModeCallback(WiFiManager *myWiFiManager);
 void handleTempRangeColour(uint16_t theVal);
 void handlePrecipRange(uint16_t theVal);
-void findTheLocation();   // find the location based on long/lat
-void updateBacklight();   // handles the display dimming at night
-void showSplashScreen();  // shows the credits and version
+void findTheLocation();       // find the location based on long/lat
+void updateBacklight();       // handles the display dimming at night
+void showSplashScreen();      // shows the credits and version
+void checkTimezoneOffsets();  // re-fetch TZ offsets from timeapi.io at 2am
 
 /***************************************************************************************
 **                          Setup
@@ -158,7 +157,6 @@ void setup() {
     while (1) yield();  // Stay here twiddling thumbs waiting
   }
   Serial.println("\nFlash FS available!");
-
 
 #ifdef SERIAL_MESSAGES
   //listFiles();
@@ -199,26 +197,18 @@ void setup() {
   wm.setAPCallback(configModeCallback);
   wm.autoConnect(DEFAULT_CAPTIVE_SSID);
 
-  // tft.drawString("Connecting to WiFi", 120, 244);
-  // tft.setTextPadding(240);  // Pad next drawString() text to full width to over-write old text
-
   tft.setTextDatum(BC_DATUM);
   tft.setTextPadding(240);        // Pad next drawString() text to full width to over-write old text
   tft.drawString(" ", 120, 220);  // Clear line above using set padding width
   tft.drawString(bootConnectedWifi, 120, 240);
   delay(1000);
   //
-  // Fetch the time
-  //  udp.begin(localPort);
-  // Seed Random With vVlues Unique To This Device
   uint8_t macAddr[6];
   WiFi.macAddress(macAddr);
   uint32_t seed1 =
     (macAddr[5] << 24) | (macAddr[4] << 16) | (macAddr[3] << 8) | macAddr[2];
   randomSeed(analogRead(A0));
-  // randomSeed(WiFi.localIP());// just the IP address and name?
   String ipaddress = WiFi.localIP().toString();
-  //  ipaddress.toCharArray(theIPAddress, ipaddress.length() + 1); // stored so we can get the IP
   localPort = random(1024, 65535);
   udp.begin(localPort);
   //
@@ -228,13 +218,9 @@ void setup() {
   tft.drawString(bootFetchingWeather, 120, 240);
   delay(2000);
   //
-  // WiFi.hostname(HOSTNAME);  //
-  syncTime(tzIndex);  // now we go look for a time server
+  syncTime();  // now we go look for a time server
   //
   tft.unloadFont();
-  //
-  // this section uses the long and lat to return the city and region for display
-  // findTheLocation();// go find the location we're interested in
 
   ow.partialDataSet(false);  // Collect a full set of the data available (false)
 
@@ -269,7 +255,11 @@ void loop() {
 
     // Request and synchronise the local clock
     if (booted || lastHour != hour()) {
-      syncTime(tzIndex);
+      syncTime();
+      // At 2am re-fetch timezone offsets from timeapi.io to catch any DST changes
+      if (hour(toLocal(now())) == 2) {
+        checkTimezoneOffsets();
+      }
       lastHour = hour();
     }
 
@@ -309,19 +299,38 @@ void loop() {
   }
 
   if (touchscreen.tirqTouched() && touchscreen.touched()) {
-    touchscreen.getPoint();                   // clear the IRQ
-    while (touchscreen.touched()) delay(10);  // wait for finger up
-    showSplashScreen();
+    TS_Point p = touchscreen.getPoint();
+    while (touchscreen.touched()) delay(10);
+
+    if (p.y < 900) {
+      // Clock area — show splash
+      showSplashScreen();
+    } else if (p.y < 1800) {
+      // Icon/weather area — toggle location
+      altLocation = !altLocation;
+      runBdcOnce = false;
+      Serial.println(altLocation ? "Switched to TZ2" : "Switched to TZ1");
+      updateData();
+      drawTime();         // show the time
+      updateBacklight();  // change the backlight if needed
+      drawWiFiQuality();  // update signal strength once a minute
+    } else {
+      // Forecast area — toggle forecast page
+      tft.loadFont(AA_FONT_SMALL, LittleFS);
+      forecastPage = !forecastPage;
+      if (forecastPage) forecastPageTimer = millis();
+      drawForecast();
+      tft.unloadFont();
+    }
   }
 }
+
 //
 /***************************************************************************************
 **                          Fetch the weather data  and update screen
 ***************************************************************************************/
 // Update the Internet based information and update screen
 void updateData() {
-  // booted = true;  // Test only
-  // booted = false; // Test only
   uint16_t smurf;
   bool parsed;
   //
@@ -355,14 +364,18 @@ void updateData() {
 #endif
 
   findTheLocation();  // go find the location we're interested in
-                      //
-  parsed = ow.getForecast(current, hourly, daily, latitude, longitude, units);
 
-  // try again in 30 seconds if it fails
+  // Use active location coordinates for weather fetch
+  String activeLat = altLocation ? latitude2 : latitude;
+  String activeLon = altLocation ? longitude2 : longitude;
+
+  parsed = ow.getForecast(current, hourly, daily, activeLat, activeLon, units);
+
+  // try again in 60 seconds if it fails
   if (!parsed) {
     Serial.println("Fetch failed, retrying in 60 seconds...");
     delay(60000);
-    parsed = ow.getForecast(current, hourly, daily, latitude, longitude, units);
+    parsed = ow.getForecast(current, hourly, daily, activeLat, activeLon, units);
   }
 
   printWeather();  // For debug, turn on output with #define SERIAL_MESSAGES
@@ -389,30 +402,20 @@ void updateData() {
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
-    // Font ASCII code 0xB0 is a degree symbol, but o used instead in small font
     tft.setTextPadding(tft.textWidth(" -88"));  // Max width of values
 
-    //    String weatherText = "";
-    //    weatherText = (int16_t) current->temp;  // Make it integer temperature
-    //    tft.drawString(weatherText, 215, 95); //  + "°" symbol is big... use o in small font
-    //
-    String weatherText = "";       // this draws the temperature number
-    smurf = current->temp + .5;    // Make it integer temperature
-    weatherText = String(smurf);   // Make it round temperature
-    handleTempRangeColour(smurf);  // go set the colour of the display to match the range
-    if (runBdcOnce == false) {     // if we didn't get the info the first time, try again
-      findTheLocation();           // based on long and lat, otherwise "unknown"
+    String weatherText = "";
+    smurf = current->temp + .5;  // Make it integer temperature
+    weatherText = String(smurf);
+    handleTempRangeColour(smurf);
+    if (runBdcOnce == false) {
+      findTheLocation();
     }
-    tft.drawString(weatherText, 215, 100);  //  + "°" symbol is big... use o in small font
+    tft.drawString(weatherText, 215, 100);
     //
   } else {
     Serial.println("Failed to get weather");
   }
-
-  // Delete to free up space
-  //  delete current;
-  //  delete hourly;
-  //  delete daily;
 
   tft.unloadFont();
 }
@@ -435,26 +438,24 @@ void drawProgress(uint8_t percentage, String text) {
 **                          Draw the clock digits
 ***************************************************************************************/
 void drawTime() {
-  uint32_t currentSecond;
   tft.loadFont(AA_FONT_LARGE, LittleFS);
 
-  // Convert UTC to local time, returns zone code in tz1_Code, e.g "GMT"
-  time_t local_time = (*tz).toLocal(now(), &tcr);
+  // Apply timezone offset to get local time
+  time_t local_time = toLocal(now());
 
   String timeNow = "";
 
-  if (show24Hour == true) {  // we want to show 24 hour time?
+  if (show24Hour == true) {
     if (hour(local_time) < 10) timeNow += "0";
-    timeNow += hour(local_time);  // 24 hr time
-  } else {                        // we want to show normal time 12 hour format
+    timeNow += hour(local_time);
+  } else {
     if (hour(local_time) > 12) {
-      timeNow += hour(local_time) - 12;  // make it a normal time
+      timeNow += hour(local_time) - 12;
     } else {
-      timeNow += hour(local_time);                // else just use it (dont make it digital)
-      if (hour(local_time) == 0) timeNow = "12";  // at midnight we make it 12:xx
+      timeNow += hour(local_time);
+      if (hour(local_time) == 0) timeNow = "12";
     }
   }
-  //  timeNow += hour(local_time);
   timeNow += ":";
   if (minute(local_time) < 10) timeNow += "0";
   timeNow += minute(local_time);
@@ -463,8 +464,6 @@ void drawTime() {
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.setTextPadding(tft.textWidth(" 44:44 "));  // String width + margin
   tft.drawString(timeNow, 120, 53);
-  //
-  drawSeparator(51);
 
   tft.setTextPadding(0);
 
@@ -475,16 +474,16 @@ void drawTime() {
 **                          Draw the current weather
 ***************************************************************************************/
 void drawCurrentWeather() {
-  time_t local_time = (*tz).toLocal(now(), &tcr);
+  time_t local_time = toLocal(now());
   String date = String(updatedStr) + strDate(local_time);
 
-  int x, y, uvMax, temp, theWidth;  // used for drawing the UVindex
+  int x, y, uvMax, temp, theWidth;
   uint16_t theColour;
   String weatherText = "None";
 
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth(" Updated: Mmm 44 44:44 "));  // String width + margin
+  tft.setTextPadding(tft.textWidth(" Updated: Mmm 44 44:44 "));
   tft.drawString(date, 120, 16);
 
   String weatherIcon = "";
@@ -493,13 +492,10 @@ void drawCurrentWeather() {
 
   weatherIcon = getMeteoconIcon(current->id, true);
 
-  //uint32_t dt = millis();
   ui.drawBmp("/icon/" + weatherIcon + ".bmp", 0, 62);
-  //Serial.print("Icon draw time = "); Serial.println(millis()-dt);
 
   // Weather Text
   weatherText = wmoDescription(current->id);
-
 
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
@@ -508,18 +504,16 @@ void drawCurrentWeather() {
   int xpos = 235;
   splitPoint = splitIndex(weatherText);
 
-  tft.setTextPadding(xpos - 100);  // xpos - icon width
+  tft.setTextPadding(xpos - 100);
   if (splitPoint) tft.drawString(weatherText.substring(0, splitPoint), xpos, 86);
   else tft.drawString(" ", xpos, 74);
-  tft.drawString(weatherText.substring(splitPoint), xpos, 100);  // clouds, rain, etc
+  tft.drawString(weatherText.substring(splitPoint), xpos, 100);
 
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.setTextDatum(TR_DATUM);
   tft.setTextPadding(0);
   if (units == "metric") tft.drawString(tempMetric, 237, 105);
   else tft.drawString(tempImperial, 237, 105);
-
-  //Temperature large digits added in updateData() to save swapping font here
 
   tft.setTextColor(labelColour, TFT_BLACK);
   weatherText = (uint16_t)current->wind_speed;
@@ -528,7 +522,7 @@ void drawCurrentWeather() {
   else weatherText += windImperial;
 
   tft.setTextDatum(TC_DATUM);
-  tft.setTextPadding(tft.textWidth("888 m/s"));  // Max string length?
+  tft.setTextPadding(tft.textWidth("888 m/s"));
   tft.drawString(weatherText, 124, 136);
 
   if (showBarometric) {
@@ -541,7 +535,7 @@ void drawCurrentWeather() {
     }
 
     tft.setTextDatum(TR_DATUM);
-    tft.setTextPadding(tft.textWidth(" 8888hPa"));  // Max string length?
+    tft.setTextPadding(tft.textWidth(" 8888hPa"));
     tft.drawString(weatherText, 230, 136);
   }
 
@@ -550,103 +544,74 @@ void drawCurrentWeather() {
   String wind[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
   ui.drawBmp("/wind/" + wind[windAngle] + ".bmp", 101, 86);
   //
+  // Show city name for whichever location is active
+  String cityName = altLocation ? theCityLocation2 : theCityLocation;
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth(theCityLocation));  // simple city name
-  tft.drawString(theCityLocation, 120, 70);
-  // Serial.println(theCityLocation);
+  tft.setTextPadding(tft.textWidth(cityName));
+  tft.drawString(cityName, 120, 70);
   //
   if (showUVindex) {
     theColour = TFT_GREEN;
-    uvMax = (current->uvi + .5);  // the number of squares to draw (0 to ##)
-    //  Serial.print("uvMAX : ") ; Serial.println(uvMax);
-    // Serial.print("Current : ") ; Serial.println(current->uvi);
-    //  uvMax = 9;// we only draw 0 to 9 which translates to 0 to 11...
-    if (uvMax > 9) uvMax = 9;  // maximum boxes to draw (10)
+    uvMax = (current->uvi + .5);
+    if (uvMax > 9) uvMax = 9;
     for (temp = 0; temp <= 9; temp++) {
-      x = 178 + (temp * 6);  // this is where to start the X point for the UV
-      y = 40 - (temp * 2);   // where the Y point start is
-      if (temp <= uvMax) {   // we change colours to the max of the UVindex
+      x = 178 + (temp * 6);
+      y = 40 - (temp * 2);
+      if (temp <= uvMax) {
         switch (temp) {
-          case 0:
-            theColour = TFT_GREEN;
-            break;
-          case 1:
-            theColour = TFT_GREEN;
-            break;
-          case 2:
-            theColour = TFT_GREEN;
-            break;
-          case 3:
-            theColour = TFT_YELLOW;
-            break;
-          case 4:
-            theColour = TFT_YELLOW;
-            break;
-          case 5:
-            theColour = TFT_YELLOW;
-            break;
-          case 6:
-            theColour = TFT_ORANGE;
-            break;
-          case 7:
-            theColour = TFT_ORANGE;
-            break;
-          case 8:
-            theColour = TFT_RED;
-            break;
-          case 9:
-            theColour = TFT_RED;
-            break;
-          case 10:
-            theColour = TFT_RED;
-            break;
-          default:
-            theColour = TFT_DARKGREY;
-            break;
+          case 0: theColour = TFT_GREEN; break;
+          case 1: theColour = TFT_GREEN; break;
+          case 2: theColour = TFT_GREEN; break;
+          case 3: theColour = TFT_YELLOW; break;
+          case 4: theColour = TFT_YELLOW; break;
+          case 5: theColour = TFT_YELLOW; break;
+          case 6: theColour = TFT_ORANGE; break;
+          case 7: theColour = TFT_ORANGE; break;
+          case 8: theColour = TFT_RED; break;
+          case 9: theColour = TFT_RED; break;
+          case 10: theColour = TFT_RED; break;
+          default: theColour = TFT_DARKGREY; break;
         }
       } else {
         theColour = TFT_DARKGREY;
       }
-      tft.fillRect(x, y, 4, 8 + (temp * 2), theColour);  // width, height
+      tft.fillRect(x, y, 4, 8 + (temp * 2), theColour);
     }
   }
-  //
-  drawSeparator(153);
 
-  tft.setTextDatum(TL_DATUM);  // Reset datum to normal
-  tft.setTextPadding(0);       // Reset padding width to none
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextPadding(0);
 }
 
 /***************************************************************************************
 **                          Draw the 4 forecast columns
 ***************************************************************************************/
-// draws the three forecast columns
+// draws the four forecast columns for either days 1-4 or days 5-8
 void drawForecast() {
-  int8_t dayIndex = 1;
+  // forecastPage false = days 1-4 (index 1..4), true = days 5-8 (index 5..7)
+  // Index 0 = today, indices 1-7 = next 7 days. Index 8 does not exist.
+  int8_t baseDay = forecastStartToday ? 0 : 1;
+  int8_t dayIndex = forecastPage ? (baseDay + 4) : baseDay;
+
+  // Clear the forecast area before redrawing so stale icons/text don't bleed through
+  tft.fillRect(0, 156, SCREEN_W, 84, TFT_BLACK);
 
   drawForecastDetail(8, 171, dayIndex++);
-  drawForecastDetail(66, 171, dayIndex++);   // was 95
-  drawForecastDetail(124, 171, dayIndex++);  // was 180
-  drawForecastDetail(182, 171, dayIndex);    // was 180
-  drawSeparator(171 + 69);
+  drawForecastDetail(66, 171, dayIndex++);
+  drawForecastDetail(124, 171, dayIndex++);
+  if (dayIndex < MAX_DAYS) drawForecastDetail(182, 171, dayIndex);
 }
 
 /***************************************************************************************
 **                          Draw 1 forecast column at x, y
 ***************************************************************************************/
-// helper for the forecast columns
 void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
   uint16_t precipProbability;
 
   if (dayIndex >= MAX_DAYS) return;
 
-  // Serial.print("dayIndex: "); Serial.print(dayIndex);
-  // Serial.print(" pop: "); Serial.print(daily->pop[dayIndex] * 100);
-  // Serial.print(" dt: "); Serial.println(strDate(daily->dt[dayIndex]));
-  // Serial.print("dt raw: "); Serial.println(daily->dt[1]);
-
-  //String day = shortDOW[weekday((*tz).toLocal(daily->dt[dayIndex], &tcr))];
+  //String day = shortDOW[weekday(toLocal(daily->dt[dayIndex]))];
   String day = shortDOW[weekday(daily->dt[dayIndex])];
   day.toUpperCase();
 
@@ -654,32 +619,30 @@ void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
 
   tft.setTextColor(labelColour, TFT_BLACK);
   tft.setTextPadding(tft.textWidth("WWW"));
-  tft.drawString(day, x + 25, y);  // display the day of the week
+  tft.drawString(day, x + 25, y);
 
   tft.setTextPadding(tft.textWidth("-88"));
   String highTemp = String(daily->temp_max[dayIndex], 0);
   String lowTemp = String(daily->temp_min[dayIndex], 0);
-  handleTempRangeColour(daily->temp_min[dayIndex]);  // set the low colour first
-  tft.drawString(lowTemp, x + 12, y + 14);           //
-  handleTempRangeColour(daily->temp_max[dayIndex]);  // set high colour next
-  tft.drawString(highTemp, x + 37, y + 14);          //
+  handleTempRangeColour(daily->temp_max[dayIndex]);
+  tft.drawString(highTemp, x + 12, y + 14);
+  handleTempRangeColour(daily->temp_min[dayIndex]);
+  tft.drawString(lowTemp, x + 37, y + 14);
 
   String weatherIcon = getMeteoconIcon(daily->id[dayIndex], false);
 
-  ui.drawBmp("/icon50/" + weatherIcon + ".bmp", x, y + 10);  // was 18
-  //
-  // added percentage of precip
+  ui.drawBmp("/icon50/" + weatherIcon + ".bmp", x, y + 10);
 
   if (showPrecipProbability) {
-    precipProbability = daily->pop[dayIndex] * 100;  // API returns a floating point number
+    precipProbability = daily->pop[dayIndex] * 100;
     String myPOP = String(precipProbability);
-    myPOP += "%";  // add a percent sign
+    myPOP += "%";
     tft.setTextPadding(tft.textWidth(" 88% "));
-    handlePrecipRange(precipProbability);   // set the colour according to the range
-    tft.drawString(myPOP, x + 25, y + 72);  // draw the POP
+    handlePrecipRange(precipProbability);
+    tft.drawString(myPOP, x + 25, y + 72);
   }
-  //
-  tft.setTextPadding(0);  // Reset padding width to none
+
+  tft.setTextPadding(0);
 }
 //
 /***************************************************************************************
@@ -699,7 +662,7 @@ void handleHourlyFrame() {
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
   tft.setTextPadding(tft.textWidth("Temp:"));
-  tft.drawString(popLabelStr, theX - 12, theY);  // line labels
+  tft.drawString(popLabelStr, theX - 12, theY);
   tft.drawString(tempLabelStr, theX - 12, theY + theOffsetY);
   tft.drawString(dewLabelStr, theX - 12, theY + (theOffsetY * 2));
   tft.setTextColor(labelColour, TFT_BLACK);
@@ -707,55 +670,48 @@ void handleHourlyFrame() {
   tft.drawString(forecastTitleStr, 120, theY - 20);
   tft.setTextDatum(BL_DATUM);
   //
-  drawSeparator(260);  // top of the info
+  drawSeparator(260);
 
   for (temp = 0; temp < 6; temp++) {
-    //
     precipProbability = hourly->pop[temp] * 100;
-    if (precipProbability >= 100) {
-      precipProbability = 99;
-    }
-    //
-    handlePrecipRange(precipProbability);  // set the colour according to the range
-    if (precipProbability < 10) {          // we need to pad single digit numbers
+    if (precipProbability >= 100) precipProbability = 99;
+
+    handlePrecipRange(precipProbability);
+    if (precipProbability < 10) {
       result = "  ";
       result += String(precipProbability);
     } else {
-      result = String(precipProbability);  // else use two digits
+      result = String(precipProbability);
     }
-    //
-    tft.drawString(result, theX + (temp * 26), theY);  // show the POP
-    //
+
+    tft.drawString(result, theX + (temp * 26), theY);
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    // smurf = hourly->temp[temp] + .5;  // we need this to round up the float
-    smurf = hourly->temp[temp] + .5;  // round her up
-    if (smurf >= 100) {               // look for 3 digit numbers
-      smurf = 99;
-    }
-    handleTempRangeColour(smurf);  // go set the colour of the display to match the range
-    //
-    if (smurf < 10) {  // we need to pad single digit numbers
+    smurf = hourly->temp[temp] + .5;
+    if (smurf >= 100) smurf = 99;
+    handleTempRangeColour(smurf);
+
+    if (smurf < 10) {
       result = "  ";
       result += String(smurf);
     } else {
-      result = String(smurf);  // else use two digits
+      result = String(smurf);
     }
-    tft.drawString(result, theX + (temp * 26), theY + theOffsetY);  // show the result temperature
-    //
+    tft.drawString(result, theX + (temp * 26), theY + theOffsetY);
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    // smurf = hourly->dew_point[temp] + .5;  // we need this to round up the float
-    smurf = hourly->dew_point[temp] + .5;  // round her up
-    if (smurf >= 100) {                    // look for 3 digit numbers
+    smurf = hourly->dew_point[temp] + .5;
+    if (smurf >= 100) {
       smurf = 99;
       tft.setTextColor(TFT_RED, TFT_BLACK);
     }
-    if (smurf < 10) {  // we need to pad single digit numbers
+    if (smurf < 10) {
       result = "  ";
       result += String(smurf);
     } else {
-      result = String(smurf);  // else use two digits
+      result = String(smurf);
     }
-    tft.drawString(result, theX + (temp * 26), theY + (theOffsetY * 2));  // show the result dewpoint
+    tft.drawString(result, theX + (temp * 26), theY + (theOffsetY * 2));
   }
   tft.unloadFont();
 }
@@ -766,6 +722,7 @@ void handleAstronomyFrame() {
   drawAstronomy();
   tft.unloadFont();
 }
+
 /***************************************************************************************
 **                          Draw Sun rise/set, Moon, cloud cover and humidity
 ***************************************************************************************/
@@ -775,7 +732,7 @@ void drawAstronomy() {
   tft.setTextColor(astrologyColour, TFT_BLACK);
   tft.setTextPadding(tft.textWidth(" Last qtr "));
 
-  time_t local_time = (*tz).toLocal(current->dt, &tcr);
+  time_t local_time = toLocal(current->dt);
   uint16_t y = year(local_time);
   uint8_t m = month(local_time);
   uint8_t d = day(local_time);
@@ -783,42 +740,40 @@ void drawAstronomy() {
   int ip, xPos;
   uint8_t icon = moon_phase(y, m, d, h, &ip);
 
-  // draw the phase of the moon from the geolocation
   tft.drawString(moonPhase[ip], 120, 319);
-  bool southernHemisphere = latitude.toFloat() < 0.0;
+  // Use active location latitude for hemisphere detection
+  String activeLat = altLocation ? latitude2 : latitude;
+  bool southernHemisphere = activeLat.toFloat() < 0.0;
   String moonHemi = southernHemisphere ? "R" : "L";
   ui.drawBmp("/moon/moonphase_" + moonHemi + String(icon) + ".bmp", 120 - 30, 318 - 16 - 60);
-  //tft.fillCircle(120, 272, 30, TFT_WHITE);  // same centre and radius as the 60x60 BMP (testing)
 
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(astrologyColour, TFT_BLACK);
-  tft.setTextPadding(0);  // Reset padding width to none
+  tft.setTextPadding(0);
   tft.drawString(sunStr, 44, 270);
 
-  // Add Rise:/Set: labels
   tft.setTextDatum(BR_DATUM);
   tft.setTextColor(astrologyColour, TFT_BLACK);
   tft.setTextPadding(tft.textWidth(riseStr));
   show24Hour ? xPos = 34 : xPos = 43;
-  tft.drawString(riseStr, xPos, 290);  // spacing
+  tft.drawString(riseStr, xPos, 290);
   tft.drawString(setStr, xPos, 305);
 
-  // tft.setTextDatum(BR_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth("8:88 "));  // no leading space — max realistic width
+  tft.setTextPadding(tft.textWidth("8:88 "));
 
   String rising = strTime(current->sunrise) + " ";
-  int dt = rightOffset(rising, ":");  // Draw relative to colon to them aligned
+  int dt = rightOffset(rising, ":");
   tft.drawString(rising, 55 + dt, 290);
-  //
-  sunrise = daySeconds(current->sunrise);  // trigger point for clock colour
-  //
+
+  sunrise = daySeconds(current->sunrise);
+
   String setting = strTime(current->sunset) + " ";
   dt = rightOffset(setting, ":");
   tft.drawString(setting, 55 + dt, 305);
-  //
-  sunset = daySeconds(current->sunset);  // trigger point for clock colour
-  //
+
+  sunset = daySeconds(current->sunset);
+
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(astrologyColour, TFT_BLACK);
   tft.drawString(cloudStr, 195, 260);
@@ -845,10 +800,9 @@ void drawAstronomy() {
   tft.setTextPadding(tft.textWidth("100%"));
   tft.drawString(humidity, 210, 315);
 
-  tft.setTextPadding(0);  // Reset padding width to none
+  tft.setTextPadding(0);
 }
-//
-//
+
 /***************************************************************************************
 **                          Set the colour for the temp range
 ***************************************************************************************/
@@ -857,6 +811,7 @@ void handleTempRangeColour(uint16_t theVal) {
   if (theVal < highTempVal) tft.setTextColor(midTempColour, TFT_BLACK);
   if (theVal < lowTempVal) tft.setTextColor(lowTempColour, TFT_BLACK);
 }
+
 /***************************************************************************************
 **                          Set the colour for the POP range
 ***************************************************************************************/
@@ -865,10 +820,7 @@ void handlePrecipRange(uint16_t theVal) {
   if (theVal < highPrecipProb) tft.setTextColor(midPOPColour, TFT_BLACK);
   if (theVal < lowPrecipProb) tft.setTextColor(lowPOPColour, TFT_BLACK);
 }
-/***************************************************************************************
-**                          Get the icon file name from the WMO weather code
-**                          https://open-meteo.com/en/docs#weathervariables
-***************************************************************************************/
+
 /***************************************************************************************
 **                Get the icon file name from the WMO weather code
 **                Matches icon filenames in /icon/ and /icon50/ folders
@@ -876,73 +828,43 @@ void handlePrecipRange(uint16_t theVal) {
 const char *getMeteoconIcon(uint16_t id, bool today) {
   bool isNight = today && (current->dt < current->sunrise || current->dt > current->sunset);
 
-  // Clear
   if (id == 0) return isNight ? "clear_night" : "sunny";
   if (id == 1) return isNight ? "mostly_clear_night" : "mostly_sunny";
-
-  // Partly cloudy
   if (id == 2) return isNight ? "partly_cloudy_night" : "partly_cloudy";
-
-  // Overcast
   if (id == 3) return "cloudy";
-
-  // Fog
   if (id == 45 || id == 48) return "haze_fog_dust_smoke";
-
-  // Drizzle light/moderate
   if (id == 51 || id == 53) return "drizzle";
-  // Drizzle dense
   if (id == 55) return "drizzle";
-  // Freezing drizzle
   if (id == 56 || id == 57) return "wintry_mix_rain_snow";
-
-  // Rain slight
   if (id == 61) return "showers_rain";
-  // Rain moderate
   if (id == 63) return "showers_rain";
-  // Rain heavy
   if (id == 65) return "heavy_rain";
-  // Freezing rain
   if (id == 66 || id == 67) return "sleet_hail";
-
-  // Snow slight
   if (id == 71) return "flurries";
-  // Snow moderate
   if (id == 73) return "heavy_snow";
-  // Snow heavy
   if (id == 75) return "heavy_snow";
-  // Snow grains
   if (id == 77) return "flurries";
-
-  // Rain showers slight
   if (id == 80) return isNight ? "scattered_showers_night" : "scattered_showers_day";
-  // Rain showers moderate
   if (id == 81) return isNight ? "scattered_showers_night" : "scattered_showers_day";
-  // Rain showers heavy/violent
   if (id == 82) return "heavy_rain";
-
-  // Snow showers
   if (id == 85) return "snow_showers_snow";
   if (id == 86) return "blizzard";
-
-  // Thunderstorm
   if (id == 95) return isNight ? "isolated_scattered_tstorms_night" : "isolated_scattered_tstorms_day";
-  // Thunderstorm with hail
   if (id == 96 || id == 99) return "strong_tstorms";
 
   return "unknown";
-} /***************************************************************************************
+}
+
+/***************************************************************************************
 **                          Draw screen section separator line
 ***************************************************************************************/
-// if you don't want separators, comment out the tft-line
 void drawSeparator(uint16_t y) {
   tft.drawFastHLine(10, y, 240 - 2 * 10, 0x4228);
 }
 
 /***************************************************************************************
-**                          Determine place to split a line line
+**                          Determine place to split a line
 ***************************************************************************************/
-// determine the "space" split point in a long string
 int splitIndex(String text) {
   int index = 0;
   while ((text.indexOf(' ', index) >= 0) && (index <= text.length() / 2)) {
@@ -955,10 +877,6 @@ int splitIndex(String text) {
 /***************************************************************************************
 **                          Right side offset to a character
 ***************************************************************************************/
-// Calculate coord delta from end of text String to start of sub String contained within that text
-// Can be used to vertically right align text so for example a colon ":" in the time value is always
-// plotted at same point on the screen irrespective of different proportional character widths,
-// could also be used to align decimal points for neat formatting
 int rightOffset(String text, String sub) {
   int index = text.indexOf(sub);
   return tft.textWidth(text.substring(index));
@@ -967,10 +885,6 @@ int rightOffset(String text, String sub) {
 /***************************************************************************************
 **                          Left side offset to a character
 ***************************************************************************************/
-// Calculate coord delta from start of text String to start of sub String contained within that text
-// Can be used to vertically left align text so for example a colon ":" in the time value is always
-// plotted at same point on the screen irrespective of different proportional character widths,
-// could also be used to align decimal points for neat formatting
 int leftOffset(String text, String sub) {
   int index = text.indexOf(sub);
   return tft.textWidth(text.substring(0, index));
@@ -979,29 +893,18 @@ int leftOffset(String text, String sub) {
 /***************************************************************************************
 **                          Draw circle segment
 ***************************************************************************************/
-// Draw a segment of a circle, centred on x,y with defined start_angle and subtended sub_angle
-// Angles are defined in a clockwise direction with 0 at top
-// Segment has radius r and it is plotted in defined colour
-// Can be used for pie charts etc, in this sketch it is used for wind direction
-#define DEG2RAD 0.0174532925  // Degrees to Radians conversion factor
-#define INC 2                 // Minimum segment subtended angle and plotting angle increment (in degrees)
+#define DEG2RAD 0.0174532925
+#define INC 2
 void fillSegment(int x, int y, int start_angle, int sub_angle, int r, unsigned int colour) {
-  // Calculate first pair of coordinates for segment start
   float sx = cos((start_angle - 90) * DEG2RAD);
   float sy = sin((start_angle - 90) * DEG2RAD);
   uint16_t x1 = sx * r + x;
   uint16_t y1 = sy * r + y;
 
-  // Draw colour blocks every INC degrees
   for (int i = start_angle; i < start_angle + sub_angle; i += INC) {
-
-    // Calculate pair of coordinates for segment end
     int x2 = cos((i + 1 - 90) * DEG2RAD) * r + x;
     int y2 = sin((i + 1 - 90) * DEG2RAD) * r + y;
-
     tft.fillTriangle(x1, y1, x2, y2, x, y, colour);
-
-    // Copy segment end to segment start for next segment
     x1 = x2;
     y1 = y2;
   }
@@ -1026,68 +929,61 @@ void printWeather(void) {
   Serial.print("temp               : ");
   Serial.println(current->temp);
   Serial.print("humidity           : ");
-  Serial.println(current->humidity);  // percentage
+  Serial.println(current->humidity);
   Serial.print("pressure           : ");
-  Serial.println(current->pressure);  // pressure sea level hPa
+  Serial.println(current->pressure);
   Serial.print("wind_speed         : ");
   Serial.println(current->wind_speed);
   Serial.print("wind_deg           : ");
   Serial.println(current->wind_deg);
   Serial.print("clouds             : ");
-  Serial.println(current->clouds);  // current cloud %
+  Serial.println(current->clouds);
   Serial.print("UVIndex            : ");
-  Serial.println(current->uvi);  // currect UV index %...
+  Serial.println(current->uvi);
   Serial.print("id                 : ");
   Serial.println(current->id);
   Serial.println();
 
   Serial.println("###############  Daily weather  ###############\n");
-  Serial.println();
-
   for (int i = 0; i < 5; i++) {
     Serial.print("dt (time)          : ");
     Serial.println(strDate(daily->dt[i]));
     Serial.print("id                 : ");
     Serial.println(daily->id[i]);
-    Serial.print("temp_Max          : ");
+    Serial.print("temp_Max           : ");
     Serial.println(daily->temp_max[i]);
     Serial.print("temp_min           : ");
     Serial.println(daily->temp_min[i]);
     Serial.print("Pressure           : ");
     Serial.println(daily->pressure[i]);
     Serial.print("Clouds             : ");
-    Serial.println(daily->clouds[i]);  // clouds are daily total
+    Serial.println(daily->clouds[i]);
     Serial.print("UV Index           : ");
-    Serial.println(daily->uvi[i]);  // this is taken at midnight so no UVI
+    Serial.println(daily->uvi[i]);
     Serial.print("POP                : ");
-    Serial.println(daily->pop[i]);  // this is correct for a future forecast
+    Serial.println(daily->pop[i]);
     Serial.println();
   }
-  //
-  Serial.println("###############  Hourly weather  ###############\n");
-  Serial.println();
 
+  Serial.println("###############  Hourly weather  ###############\n");
   for (int i = 0; i < 5; i++) {
     Serial.print("dt (time)          : ");
     Serial.println(strDate(hourly->dt[i]));
     Serial.print("temp               : ");
     Serial.println(hourly->temp[i]);
-    //Serial.print("temp_min           : "); Serial.println(daily->temp_min[i]);
-    //Serial.print("Pressure           : "); Serial.println(daily->pressure[i]);
     Serial.print("Dew Point          : ");
-    Serial.println(hourly->dew_point[i]);  // clouds are daily total
-    //Serial.print("UV Index           : "); Serial.println(daily->uvi[i]);// this is taken at midnight so no UVI
+    Serial.println(hourly->dew_point[i]);
     Serial.print("POP                : ");
-    Serial.println(hourly->pop[i]);  // this is correct for a future forecast
+    Serial.println(hourly->pop[i]);
     Serial.println();
   }
 #endif
 }
+
 /***************************************************************************************
 **             Convert Unix time to a "local time" time string "12:34"
 ***************************************************************************************/
 String strTime(time_t unixTime) {
-  // Expects a time already converted to local — no tz conversion here
   String localTime = "";
 
   if (show24Hour == true) {
@@ -1107,48 +1003,46 @@ String strTime(time_t unixTime) {
 
   return localTime;
 }
-//
+
 /***************************************************************************************
-   Convert the time to the seconds of the day
+**   Convert the time to the seconds of the day
 ***************************************************************************************/
 uint32_t daySeconds(time_t unixTime) {
   return (hour(unixTime) * 3600) + (minute(unixTime) * 60) + (second(unixTime));
 }
-//
+
 /***************************************************************************************
-**  Convert Unix time to a local date + time string "Oct 16 17:18", ends with newline
+**  Convert Unix time to a local date + time string "Oct 16 17:18"
 ***************************************************************************************/
 String strDate(time_t unixTime) {
   String localDate = "";
-  localDate += shortMonth[month(unixTime) - 1];  // was monthShortStr(month(unixTime))
+  localDate += shortMonth[month(unixTime) - 1];
   localDate += " ";
   localDate += day(unixTime);
   localDate += " " + strTime(unixTime);
   return localDate;
-}  //
+}
 
+/***************************************************************************************
+**                          Draw WiFi signal strength bars
+***************************************************************************************/
 void drawWiFiQuality() {
-  const byte numBars = 5;        // set the number of total bars to display
-  const byte barWidth = 3;       // set bar width, height in pixels
-  const byte barHeight = 20;     // should be multiple of numBars, or to indicate zero value
-  const byte barSpace = 1;       // set number of pixels between bars
-  const byte barXPosBase = 215;  // set the baseline X-pos for drawing the bars
-  const byte barYPosBase = 20;   // set the baseline Y-pos for drawing the bars
+  const byte numBars = 5;
+  const byte barWidth = 3;
+  const byte barHeight = 20;
+  const byte barSpace = 1;
+  const byte barXPosBase = 215;
+  const byte barYPosBase = 20;
   const uint16_t barColor = TFT_YELLOW;
   const uint16_t barBackColor = TFT_DARKGREY;
 
   int8_t quality = getWifiQuality();
 
-  // tft.setFont(&Droid_Sans_10);
-  //  ui.setTextAlignment(RIGHT);
-  // tft.setTextColor(ILI9341_YELLOW);
-  //  ui.drawString(220, 10,  String(quality) + "%");
-
-  for (int8_t i = 0; i < numBars; i++) {  // current bar loop
+  for (int8_t i = 0; i < numBars; i++) {
     byte barSpacer = i * barSpace;
     byte tempBarHeight = (barHeight / numBars) * (i + 1);
-    for (int8_t j = 0; j < tempBarHeight; j++) {  // draw bar height loop
-      for (byte ii = 0; ii < barWidth; ii++) {    // draw bar width loop
+    for (int8_t j = 0; j < tempBarHeight; j++) {
+      for (byte ii = 0; ii < barWidth; ii++) {
         byte nextBarThreshold = (i + 1) * (100 / numBars);
         byte currentBarThreshold = i * (100 / numBars);
         byte currentBarIncrements = (barHeight / numBars) * (i + 1);
@@ -1170,21 +1064,18 @@ void drawWiFiQuality() {
     }
   }
 }
-// converts the dBm to a range between 0 and 100%
+
 int8_t getWifiQuality() {
   int32_t dbm = WiFi.RSSI();
-  if (dbm <= -100) {
-    return 0;
-  } else if (dbm >= -50) {
-    return 100;
-  } else {
-    return 2 * (dbm + 100);
-  }
+  if (dbm <= -100) return 0;
+  else if (dbm >= -50) return 100;
+  else return 2 * (dbm + 100);
 }
-//
-//To Display <Setup> if not connected to AP
+
+/***************************************************************************************
+**                    Display Access Point setup screen
+***************************************************************************************/
 void configModeCallback(WiFiManager *myWiFiManager) {
-  //Serial.println("Setup");
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(TC_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1192,33 +1083,79 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.drawString(String(HOSTNAME), SCREEN_W / 2, SCREEN_H / 2, 4);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextFont(2);  // Use built-in font 2
+  tft.setTextFont(2);
   tft.drawString("IP: 192.168.4.1", SCREEN_W / 2, (SCREEN_H / 2) + 18, 2);
-  tft.unloadFont();  // Remove font to recover memory
+  tft.unloadFont();
   delay(2000);
 }
 
+/***************************************************************************************
+**                    Find city name for current active location
+***************************************************************************************/
 void findTheLocation() {
   if (runBdcOnce == false) {
     BDCcurrent = new BDC_current;
-    bool BDCparsed = bcd.getBDCLocation(BDCcurrent, latitude, longitude, NOMINATIM_LANG);
+    // Look up whichever location is currently active
+    String lat = altLocation ? latitude2 : latitude;
+    String lon = altLocation ? longitude2 : longitude;
+    bool BDCparsed = bcd.getBDCLocation(BDCcurrent, lat, lon, NOMINATIM_LANG);
     if (BDCparsed) {
       if (BDCcurrent->city.isEmpty() && !BDCcurrent->locality.isEmpty())
         BDCcurrent->city = BDCcurrent->locality;
-
-      theCityLocation = BDCcurrent->city;
+      String cityName = BDCcurrent->city;
       delete BDCcurrent;
+      if (cityName.length() > 26) cityName = "Local Weather";
+      if (altLocation) theCityLocation2 = cityName;
+      else theCityLocation = cityName;
       runBdcOnce = true;
-      if (theCityLocation.length() > 26) theCityLocation = "Local Weather";
     }
   }
 }
 
+/***************************************************************************************
+**                     Re-fetch timezone offsets at 2am
+**  Called once per hour when local hour == 2.
+**  Queries timeapi.io for both locations and saves to config if changed.
+***************************************************************************************/
+void checkTimezoneOffsets() {
+  extern int32_t tzOffset;
+  extern int32_t tzOffset2;
+
+  Serial.println("2am TZ check — fetching offsets...");
+
+  int32_t newOffset = fetchTZOffset(latitude, longitude, tzOffset);
+  int32_t newOffset2 = fetchTZOffset(latitude2, longitude2, tzOffset2);
+
+  bool changed = false;
+  if (newOffset != tzOffset) {
+    tzOffset = newOffset;
+    changed = true;
+    Serial.printf("TZ1 offset updated: %d\n", tzOffset);
+  }
+  if (newOffset2 != tzOffset2) {
+    tzOffset2 = newOffset2;
+    changed = true;
+    Serial.printf("TZ2 offset updated: %d\n", tzOffset2);
+  }
+
+  if (changed) {
+    saveConfig();
+    drawTime();
+    updateBacklight();
+    Serial.println("TZ offsets updated and saved.");
+  } else {
+    Serial.println("TZ offsets unchanged.");
+  }
+}
+
+/***************************************************************************************
+**                          Auto-dim backlight at dusk/dawn
+***************************************************************************************/
 void updateBacklight() {
   uint8_t targetBrightness;
 
   if (autoDimDusk) {
-    time_t local_time = (*tz).toLocal(now(), &tcr);
+    time_t local_time = toLocal(now());
     uint32_t currentSecond = (hour(local_time) * 3600) + (minute(local_time) * 60) + second(local_time);
     targetBrightness = (currentSecond >= sunrise && currentSecond < sunset) ? BL_DAY : blDusk;
   } else {
@@ -1230,12 +1167,15 @@ void updateBacklight() {
   }
 }
 
+/***************************************************************************************
+**                          Show splash screen with credits
+***************************************************************************************/
 void showSplashScreen() {
   tft.fillScreen(TFT_BLACK);
   tft.setSwapBytes(false);
-  if (LittleFS.exists("/splash/OpenMeteo.jpg") == true) ui.drawJpeg("/splash/OpenMeteo.jpg", 0, 40);  // 240 x 124
+  if (LittleFS.exists("/splash/OpenMeteo.jpg") == true) ui.drawJpeg("/splash/OpenMeteo.jpg", 0, 40);
   tft.loadFont(AA_FONT_SMALL, LittleFS);
-  tft.setTextDatum(BC_DATUM);  // Bottom Centre datum
+  tft.setTextDatum(BC_DATUM);
   tft.setTextColor(TFT_GOLD, TFT_BLACK);
 
   tft.drawString(creditOriginal, 120, 220);
@@ -1250,17 +1190,17 @@ void showSplashScreen() {
   uint32_t start = millis();
   while (millis() - start < 15000) {
     if (touchscreen.tirqTouched() && touchscreen.touched()) {
-      touchscreen.getPoint();                   // clear the IRQ
-      while (touchscreen.touched()) delay(10);  // wait for finger up
+      touchscreen.getPoint();
+      while (touchscreen.touched()) delay(10);
       break;
     }
     delay(50);
   }
   tft.unloadFont();
-  booted = true;              // force full redraw on return
-                              //  tft.setSwapBytes(false);
-  tft.fillScreen(TFT_BLACK);  // get rid of everything
+  booted = true;
+  tft.fillScreen(TFT_BLACK);
 }
+
 /**The MIT License (MIT)
   Copyright (c) 2015 by Daniel Eichhorn
   Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -1282,28 +1222,25 @@ void showSplashScreen() {
 */
 
 //  Changes made by Bodmer:
-
-//  Minor changes to text placement and auto-blanking out old text with background colour padding
-//  Moon phase text added (not provided by OpenWeather)
-//  Forecast text lines are automatically split onto two lines at a central space (some are long!)
-//  Time is printed with colons aligned to tidy display
+//  Minor changes to text placement and auto-blanking old text with background colour padding
+//  Moon phase text added
+//  Forecast text lines automatically split onto two lines at a central space
+//  Time printed with colons aligned
 //  Min and max forecast temperatures spaced out
 //  New smart splash startup screen and updated progress messages
 //  Display does not need to be blanked between updates
 //  Icons nudged about slightly to add wind direction + speed
 //  Barometric pressure added
-
-//  Adapted to use the OpenWeather library: https://github.com/Bodmer/OpenWeather
-//  Moon phase/rise/set (not provided by OpenWeather) replace with  and cloud cover humidity
-//  Created and added new 100x100 and 50x50 pixel weather icons, these are in the
-//  sketch data folder, press Ctrl+K to view
-//  Add moon icons, eliminate all downloads of icons (may lose server!)
+//  Adapted to use the OpenWeather library
+//  Moon phase/rise/set replaced with cloud cover and humidity
+//  Created and added new 100x100 and 50x50 pixel weather icons
+//  Add moon icons, eliminate all downloads of icons
 //  Adapted to use anti-aliased fonts, tweaked coords
 //  Added forecast for 4th day
 //  Added cloud cover and humidity in lieu of Moon rise/set
 //  Adapted to be compatible with ESP32
 
-/*  Changes made by WabbitGuy:
+/*  Changes made by WabbitGuy V1.4:
 
 Adapted to use Open-Meteo for weather information (updates every 15 minutes; no subscription required)
 Added Nominatim to use for location of your weather station (no subscription required)
@@ -1315,4 +1252,19 @@ Added display dimming for Sunrise/Sunset
 Full HTML browser support for user adjustable settings (including long/lat)
 Added multilingual support for English, French, German, Turkish, Spanish, Dutch, Portuguese
 Added flipped MoonPhase icons for south of equator
+Added function to see 7 day forecast, tap the weekly row to see more, tap to get back or times out in 15 seconds
+Added dual location support with automatic timezone offset via timeapi.io
+Timezone offsets self-correct at 2am daily — no hardcoding required
+
+New in v1.5.0:
+Dual location support — tap the today big weather icon to toggle between TZ1 and TZ2
+Automatic timezone detection via timeapi.io
+Self-correcting timezone at 2am daily for both locations
+Map search box — type "London UK" and the map jumps there
+Correct local time for whichever location is active
+Correct dusk dimming for whichever location is active
+Forecast start today/tomorrow option for max 8 days (from current day)
+Timezone library eliminated entirely
+Language selection moved to All_Settings.h where it belongs
+Fixed the daily forecast to read HIGH LOW to match weather outlets
 */

@@ -1,17 +1,7 @@
 // =============================================================================
-// Strings.h — WabbitWeather localisation
+// Translation.h — WabbitWeather localisation
 // =============================================================================
 //
-// HOW TO USE
-// ----------
-// 1. Add ONE of these defines before including this file (easiest place is the
-//    very top of WabbitWeather.ino, before any #include):
-//
-//      #define LANG_EN   // English  (default)
-//      #define LANG_FR   // French
-//      #define LANG_DE   // German
-//      #define LANG_ES   // Spanish
-//      #define LANG_NL   // Dutch
 //
 // 2. Remove (or comment out) the matching string definitions from All_Settings.h
 //    — shortDOW[], sunStr, cloudStr, humidityStr, moonPhase[] — they live here now.
@@ -157,6 +147,9 @@ const char wcShowBaro[] = "Show barometric pressure";
 const char wcShowPrecip[] = "Show precip probability";
 const char wcShowUV[] = "Show UV index";
 const char wcShow6Hr[] = "Show 6hr forecast";
+const char wcForecastStart[]   = "Forecast start";
+const char wcForecastToday[]   = "Today";
+const char wcForecastTomorrow[] = "Tomorrow";
 const char wcWeatherHeadings[] = "Weather Headings";
 const char wcAstroHeadings[] = "Astrology Headings";
 
@@ -307,6 +300,9 @@ const char wcShowBaro[] = "Afficher la pression";
 const char wcShowPrecip[] = "Afficher la probabilite de pluie";
 const char wcShowUV[] = "Afficher l'indice UV";
 const char wcShow6Hr[] = "Previsions sur 6h";
+const char wcForecastStart[]    = "Debut previsions";
+const char wcForecastToday[]    = "Aujourd'hui";
+const char wcForecastTomorrow[] = "Demain";
 const char wcWeatherHeadings[] = "Couleur titres meteo";
 const char wcAstroHeadings[] = "Couleur titres astronomie";
 const char wcHighTempThresh[] = "Seuil temperature haute (&deg;)";
@@ -448,6 +444,9 @@ const char wcShowBaro[] = "Luftdruck anzeigen";
 const char wcShowPrecip[] = "Niederschlagswahrscheinlichkeit anzeigen";
 const char wcShowUV[] = "UV-Index anzeigen";
 const char wcShow6Hr[] = "6-Std-Vorhersage anzeigen";
+const char wcForecastStart[]    = "Vorhersage ab";
+const char wcForecastToday[]    = "Heute";
+const char wcForecastTomorrow[] = "Morgen";
 const char wcWeatherHeadings[] = "Farbe Wetter-Titel";
 const char wcAstroHeadings[] = "Farbe Astronomie-Titel";
 const char wcHighTempThresh[] = "Hohe Temp-Schwelle (&deg;)";
@@ -588,6 +587,9 @@ const char wcShowBaro[] = "Mostrar presion barometrica";
 const char wcShowPrecip[] = "Mostrar probabilidad de precipitacion";
 const char wcShowUV[] = "Mostrar indice UV";
 const char wcShow6Hr[] = "Mostrar pronostico de 6h";
+const char wcForecastStart[]    = "Inicio pronostico";
+const char wcForecastToday[]    = "Hoy";
+const char wcForecastTomorrow[] = "Manana";
 const char wcWeatherHeadings[] = "Color titulos meteo";
 const char wcAstroHeadings[] = "Color titulos astronomia";
 const char wcHighTempThresh[] = "Umbral temperatura alta (&deg;)";
@@ -729,6 +731,9 @@ const char wcShowBaro[] = "Luchtdruk weergeven";
 const char wcShowPrecip[] = "Neerslagkans weergeven";
 const char wcShowUV[] = "UV-index weergeven";
 const char wcShow6Hr[] = "Voorspelling 6u weergeven";
+const char wcForecastStart[]    = "Voorspelling vanaf";
+const char wcForecastToday[]    = "Vandaag";
+const char wcForecastTomorrow[] = "Morgen";
 const char wcWeatherHeadings[] = "Kleur weertitels";
 const char wcAstroHeadings[] = "Kleur astronomietitels";
 const char wcHighTempThresh[] = "Hoge temp-drempel (&deg;)";
@@ -869,6 +874,9 @@ const char wcShowBaro[]         = "Mostrar pressao barometrica";
 const char wcShowPrecip[]       = "Mostrar probabilidade de chuva";
 const char wcShowUV[]           = "Mostrar indice UV";
 const char wcShow6Hr[]          = "Previsao de 6h";
+const char wcForecastStart[]    = "Inicio previsao";
+const char wcForecastToday[]    = "Hoje";
+const char wcForecastTomorrow[] = "Amanha";
 const char wcWeatherHeadings[]  = "Cor titulos meteorologia";
 const char wcAstroHeadings[]    = "Cor titulos astronomia";
 const char wcHighTempThresh[]   = "Limite temp alta (&deg;)";
@@ -1010,6 +1018,9 @@ const char wcShowBaro[]         = "Barometre goster";
 const char wcShowPrecip[]       = "Yagis olasiligi goster";
 const char wcShowUV[]           = "UV indeksi goster";
 const char wcShow6Hr[]          = "6 saatlik tahmin goster";
+const char wcForecastStart[]    = "Tahmin baslangici";
+const char wcForecastToday[]    = "Bugun";
+const char wcForecastTomorrow[] = "Yarin";
 const char wcWeatherHeadings[]  = "Hava durumu baslik rengi";
 const char wcAstroHeadings[]    = "Astronomi baslik rengi";
 const char wcHighTempThresh[]   = "Yuksek sicaklik esigi (&deg;)";

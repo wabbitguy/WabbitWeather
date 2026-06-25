@@ -3,7 +3,6 @@
 //
 // Streaming JSON parser:
 //   https://github.com/Bodmer/JSON_Decoder
-#pragma once
 
 #include <WiFiClient.h>  // plain HTTP — Open-Meteo supports it, saves ~40 KB heap
 #include <JSON_Listener.h>
@@ -116,7 +115,7 @@ bool OW_Weather::getForecast(OW_current *current, OW_hourly *hourly, OW_daily *d
   url += "&timezone=auto";
   url += "&temperature_unit=" + temp_unit;
   url += "&wind_speed_unit=" + wind_unit;
-  url += "&forecast_days=7";
+  url += "&forecast_days=8";
   url += "&forecast_hours=8";  // breathing room
   if (currentFields.length()) url += "&current=" + currentFields;
   if (hourlyFields.length()) url += "&hourly=" + hourlyFields;

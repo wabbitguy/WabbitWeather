@@ -1,5 +1,3 @@
-#pragma once
-
 // WebConfig.h — Wabbitwx web configuration portal
 // Accessible at http://wabbitweather.local or http://<IP> on port 80
 //
@@ -19,6 +17,8 @@
 // immediately and saved to /config.txt on LittleFS.
 // Check the configUpdated flag in loop() to trigger a display refresh:
 //   if (configUpdated) { configUpdated = false; updateData(); }
+
+#pragma once
 
 // ── Config file ────────────────────────────────────────────────────────────
 #define CONFIG_FILE "/config.txt"

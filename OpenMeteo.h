@@ -5,10 +5,8 @@
 #define ICON_RAIN 1       // Index for the rain icon bitmap (bmp file)
 #define NO_VALUE 11       // for precipType default (none)
 
-//#include "OpenMeteo_Setup.h"
-// #include "Data_Point_Set.h"
 #define MAX_HOURS 8    // Maximum hourly forecast periods (1-30)
-#define MAX_DAYS  5    // Maximum daily forecast periods (1-8), must be >= 5
+#define MAX_DAYS  8    // Maximum daily forecast periods — today (0) + 7 forecast days (1-7)
 
 //#define SHOW_HEADER   // Debug — response header via serial
 //#define SHOW_JSON     // Debug — JSON message formatting

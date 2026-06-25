@@ -6,7 +6,6 @@
 //
 // Streaming JSON parser:
 //   https://github.com/Bodmer/JSON_Decoder
-#pragma once
 
 #include <WiFiClientSecure.h>  // need an HTTPS connection
 #include <JSON_Listener.h>
@@ -78,7 +77,7 @@ bool BDC_location::parseBDCRequest(String url) {
     Serial.println("Nominatim connection failed.");
     return false;
   }
-  Serial.println("Nominatim connected OK");
+  // Serial.println("Nominatim connected OK");
 
   parseOK = false;
 
@@ -228,8 +227,8 @@ void BDC_location::value(const char *val) {
 **
 ** Nominatim response structure (abbreviated):
 ** {
-**   "lat": "49.1660",
-**   "lon": "-122.7768",
+**   "lat": "50.1660",
+**   "lon": "-132.7768",
 **   "display_name": "Surrey, Metro Vancouver, British Columbia, Canada",
 **   "address": {
 **     "suburb":       "Whalley",          → locality
@@ -238,7 +237,7 @@ void BDC_location::value(const char *val) {
 **     "state":        "British Columbia", → principalSubdivision
 **     "country":      "Canada",           → countryName
 **     "country_code": "ca",               → countryCode
-**     "postcode":     "V3T",              → postcode
+**     "postcode":     "V3Y",              → postcode
 **   }
 ** }
 **

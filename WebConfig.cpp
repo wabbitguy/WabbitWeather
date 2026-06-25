@@ -16,15 +16,20 @@
 static WebServer server(80);
 
 // ── Forward declarations of globals from All_Settings.h ───────────────────
-extern String units;
-extern String latitude;
-extern String longitude;
-extern bool   show24Hour;
-extern bool   autoDimDusk;
-extern bool   showBarometric;
-extern bool   showPrecipProbability;
-extern bool   showUVindex;
-extern bool   show6hrForecast;
+extern String   units;
+extern String   latitude;
+extern String   longitude;
+extern int32_t  tzOffset;
+extern String   latitude2;
+extern String   longitude2;
+extern int32_t  tzOffset2;
+extern bool     show24Hour;
+extern bool     autoDimDusk;
+extern bool     showBarometric;
+extern bool     showPrecipProbability;
+extern bool     showUVindex;
+extern bool     show6hrForecast;
+extern bool     forecastStartToday;
 extern uint8_t  highTempVal;
 extern int8_t   lowTempVal;
 extern uint32_t highTempColour;
@@ -37,8 +42,11 @@ extern uint32_t midPOPColour;
 extern uint32_t lowPOPColour;
 extern uint32_t labelColour;
 extern uint32_t astrologyColour;
-extern uint8_t blDusk;
+extern uint8_t  blDusk;
 extern volatile bool configUpdated;
+
+// ── fetchTZOffset declared in NTP_Time.h ──────────────────────────────────
+extern int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffset);
 
 // ===========================================================================
 // Config file: /config.txt  (key=value, one per line, # = comment)
@@ -66,12 +74,17 @@ void loadConfig() {
     if      (key == "units")                 units                 = value;
     else if (key == "latitude")              latitude              = value;
     else if (key == "longitude")             longitude             = value;
+    else if (key == "tzOffset")              tzOffset              = value.toInt();
+    else if (key == "latitude2")             latitude2             = value;
+    else if (key == "longitude2")            longitude2            = value;
+    else if (key == "tzOffset2")             tzOffset2             = value.toInt();
     else if (key == "show24Hour")            show24Hour            = (value == "true");
     else if (key == "autoDimDusk")           autoDimDusk           = (value == "true");
     else if (key == "showBarometric")        showBarometric        = (value == "true");
     else if (key == "showPrecipProbability") showPrecipProbability = (value == "true");
     else if (key == "showUVindex")           showUVindex           = (value == "true");
     else if (key == "show6hrForecast")       show6hrForecast       = (value == "true");
+    else if (key == "forecastStartToday")    forecastStartToday    = (value == "true");
     else if (key == "highTempVal")           highTempVal           = value.toInt();
     else if (key == "lowTempVal")            lowTempVal            = value.toInt();
     else if (key == "highTempColour")        highTempColour        = colourFromName(value);
@@ -84,7 +97,7 @@ void loadConfig() {
     else if (key == "lowPOPColour")          lowPOPColour          = colourFromName(value);
     else if (key == "labelColour")           labelColour           = colourFromName(value);
     else if (key == "astrologyColour")       astrologyColour       = colourFromName(value);
-    else if (key == "blDusk")               blDusk                = value.toInt();
+    else if (key == "blDusk")                blDusk                = value.toInt();
   }
   f.close();
   Serial.println("WebConfig: loaded " CONFIG_FILE);
@@ -98,12 +111,17 @@ void saveConfig() {
   f.println("units="                 + units);
   f.println("latitude="              + latitude);
   f.println("longitude="             + longitude);
+  f.println("tzOffset="              + String(tzOffset));
+  f.println("latitude2="             + latitude2);
+  f.println("longitude2="            + longitude2);
+  f.println("tzOffset2="             + String(tzOffset2));
   f.println("show24Hour="            + String(show24Hour            ? "true" : "false"));
   f.println("autoDimDusk="           + String(autoDimDusk           ? "true" : "false"));
   f.println("showBarometric="        + String(showBarometric        ? "true" : "false"));
   f.println("showPrecipProbability=" + String(showPrecipProbability ? "true" : "false"));
   f.println("showUVindex="           + String(showUVindex           ? "true" : "false"));
   f.println("show6hrForecast="       + String(show6hrForecast       ? "true" : "false"));
+  f.println("forecastStartToday="    + String(forecastStartToday    ? "true" : "false"));
   f.println("highTempVal="           + String(highTempVal));
   f.println("lowTempVal="            + String(lowTempVal));
   f.println("highTempColour="        + String(nameFromColour(highTempColour)));
@@ -126,7 +144,6 @@ void saveConfig() {
 // ===========================================================================
 
 static String colourSelect(const String& name, uint32_t currentValue) {
-  // Find current colour name and CSS
   String curName = "Unknown";
   String curCss  = "rgb(255,255,255)";
   for (uint8_t i = 0; i < TFT_COLOUR_COUNT; i++) {
@@ -144,8 +161,6 @@ static String colourSelect(const String& name, uint32_t currentValue) {
   }
 
   String id = "cs_" + name;
-
-  // Hidden input carries the value for form submission
   String html = "<div class='cs' id='" + id + "'>"
                 "<input type='hidden' name='" + name + "' id='" + id + "_val' value='" + curName + "'>"
                 "<div class='cs-sel' onclick='csToggle(\"" + id + "\")'>"
@@ -202,6 +217,8 @@ static String buildPage(bool saved = false) {
     "<title>WabbitWeather</title>"
     "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>"
     "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
+    "<link rel='stylesheet' href='https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css'/>"
+    "<script src='https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js'></script>"
     "<style>"
     ":root{--bg:#121212;--card:#1e1e1e;--bdr:#333;--txt:#e0e0e0;--muted:#888;"
     "--accent:#4fc3f7;--danger:#ef5350;}"
@@ -243,8 +260,22 @@ static String buildPage(bool saved = false) {
     ".toggle input:checked+.slider::after{left:23px}"
     ".tl{font-size:14px}"
     "#map{width:100%;height:280px;border-radius:8px;border:1px solid var(--bdr);margin-bottom:10px}"
-    ".cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
-    ".cgrid input{max-width:100%}"
+    // TZ row styles
+    ".tzrow{display:flex;align-items:center;gap:8px;padding:3px 0}"
+    ".tzbtn{background:#1a1a1a;border:1px solid var(--bdr);color:var(--muted);"
+    "border-radius:6px;padding:5px 10px;font-size:13px;font-weight:700;cursor:pointer;min-width:40px}"
+    ".tzbtn.active{border-color:var(--accent);color:var(--accent)}"
+    ".tzcoord{font-size:12px;color:var(--txt);font-family:monospace;"
+    "background:#111;border:1px solid var(--bdr);border-radius:6px;"
+    "padding:4px 7px;min-width:82px;text-align:center}"
+    ".tzfetch{font-size:11px;color:var(--muted);padding-left:4px}"
+    // geocoder overrides to match dark theme
+    ".leaflet-control-geocoder{background:var(--card);border:1px solid var(--bdr);border-radius:6px}"
+    ".leaflet-control-geocoder-form input{background:#1a1a1a;color:var(--txt);"
+    "border:1px solid var(--bdr);border-radius:4px;padding:4px 8px}"
+    ".leaflet-control-geocoder-alternatives{background:var(--card);border:1px solid var(--bdr)}"
+    ".leaflet-control-geocoder-alternatives li:hover{background:#2a2a2a}"
+    // end TZ/geocoder styles
     ".actions{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}"
     ".btn{padding:10px 28px;border-radius:8px;font-size:15px;font-weight:600;"
     "cursor:pointer;border:2px solid;letter-spacing:.5px}"
@@ -282,13 +313,13 @@ static String buildPage(bool saved = false) {
     "input[type=text],input[type=number]{max-width:100%}.cs{max-width:100%}}"
     "</style></head><body>");
 
-  // Header
+  // ── Header ─────────────────────────────────────────────────────────────────
   html += "<header><div><h1>&#9928; " + String(wcTitle) + "</h1>"
           "<div class='ip'>" + ip + " &nbsp;|&nbsp; wabbitweather.local</div></div>"
           "<button class='wreset' onclick='document.getElementById(\"wm\").classList.add(\"open\")'>"
           + String(wcWifiResetBtn) + "</button></header>";
 
-  // WiFi reset modal
+  // ── WiFi reset modal ────────────────────────────────────────────────────────
   html += "<div class='mbg' id='wm'><div class='modal'>"
           "<h3>" + String(wcWifiResetTitle) + "</h3>"
           "<p>" + String(wcWifiResetBody) + "</p>"
@@ -303,18 +334,38 @@ static String buildPage(bool saved = false) {
 
   html += "<form method='POST' action='/save'>";
 
-  // ── Location ──────────────────────────────────────────────────────────────
+  // ── Location ───────────────────────────────────────────────────────────────
   html += section(wcSecLocation);
-  html += "<div class='card'>"
-          "<div id='map'></div>"
-          "<div class='cgrid'>"
-          "<div><label style='display:block;font-size:12px;color:var(--muted);margin-bottom:4px'>" + String(wcLatLabel) + "</label>"
-          "<input type='text' id='lat' name='latitude' value='" + latitude + "'></div>"
-          "<div><label style='display:block;font-size:12px;color:var(--muted);margin-bottom:4px'>" + String(wcLonLabel) + "</label>"
-          "<input type='text' id='lon' name='longitude' value='" + longitude + "'></div>"
-          "</div></div>";
+  html += "<div class='card'>";
+  html += "<div id='map'></div>";
+  html += "<div style='display:flex;flex-direction:column;gap:4px'>";
 
-  // ── Display ───────────────────────────────────────────────────────────────
+  // TZ1 row
+  html += "<div class='tzrow'>"
+          "<button type='button' id='btn1' class='tzbtn active' onclick='setActive(1)'>TZ1</button>"
+          "<span class='tzcoord' id='d1lat'>" + latitude  + "</span>"
+          "<span class='tzcoord' id='d1lon'>" + longitude + "</span>"
+          "<span class='tzfetch' id='f1'></span>"
+          "<input type='hidden' id='lat'  name='latitude'   value='" + latitude   + "'>"
+          "<input type='hidden' id='lon'  name='longitude'  value='" + longitude  + "'>"
+          "<input type='hidden' id='tz1'  name='tzOffset'   value='" + String(tzOffset)  + "'>"
+          "</div>";
+
+  // TZ2 row
+  html += "<div class='tzrow'>"
+          "<button type='button' id='btn2' class='tzbtn' onclick='setActive(2)'>TZ2</button>"
+          "<span class='tzcoord' id='d2lat'>" + latitude2  + "</span>"
+          "<span class='tzcoord' id='d2lon'>" + longitude2 + "</span>"
+          "<span class='tzfetch' id='f2'></span>"
+          "<input type='hidden' id='lat2' name='latitude2'  value='" + latitude2  + "'>"
+          "<input type='hidden' id='lon2' name='longitude2' value='" + longitude2 + "'>"
+          "<input type='hidden' id='tz2'  name='tzOffset2'  value='" + String(tzOffset2) + "'>"
+          "</div>";
+
+  html += "</div>"; // end tzrows wrapper
+  html += "</div>"; // end location card
+
+  // ── Display ────────────────────────────────────────────────────────────────
   html += section(wcSecDisplay);
   html += "<div class='card'>";
   html += "<div class='row'><label>" + String(wcUnitsLabel) + "</label>"
@@ -322,22 +373,27 @@ static String buildPage(bool saved = false) {
           "<label><input type='radio' name='units' value='imperial'" + String(units=="imperial"?" checked":"") + "> " + String(wcImperial) + "</label>"
           "<label><input type='radio' name='units' value='metric'"   + String(units=="metric"  ?" checked":"") + "> " + String(wcMetric)   + "</label>"
           "</div></div>";
-  html += "<div class='row'>" + toggle("show24Hour",           show24Hour,           wcClock24)    + "</div>";
-  html += "<div class='row'>" + toggle("autoDimDusk",          autoDimDusk,          wcAutoDim)    + "</div>";
+  html += "<div class='row'>" + toggle("show24Hour",            show24Hour,            wcClock24)    + "</div>";
+  html += "<div class='row'>" + toggle("autoDimDusk",           autoDimDusk,           wcAutoDim)    + "</div>";
   html += "<div class='row'><label>" + String(wcNightBright) + "</label>"
           "<div>"
           "<input type='number' name='blDusk' value='" + String(blDusk) + "' min='0' max='255' style='max-width:90px'>"
           "<div style='font-size:11px;color:var(--muted);margin-top:4px'>" + String(wcNightBrightHint) + "</div>"
           "</div></div>";
-  html += "<div class='row'>" + toggle("showBarometric",       showBarometric,       wcShowBaro)   + "</div>";
-  html += "<div class='row'>" + toggle("showPrecipProbability",showPrecipProbability,wcShowPrecip) + "</div>";
-  html += "<div class='row'>" + toggle("showUVindex",          showUVindex,          wcShowUV)     + "</div>";
-  html += "<div class='row'>" + toggle("show6hrForecast",      show6hrForecast,      wcShow6Hr)    + "</div>";
+  html += "<div class='row'>" + toggle("showBarometric",        showBarometric,        wcShowBaro)   + "</div>";
+  html += "<div class='row'>" + toggle("showPrecipProbability", showPrecipProbability, wcShowPrecip) + "</div>";
+  html += "<div class='row'>" + toggle("showUVindex",           showUVindex,           wcShowUV)     + "</div>";
+  html += "<div class='row'>" + toggle("show6hrForecast",       show6hrForecast,       wcShow6Hr)    + "</div>";
+  html += "<div class='row'><label>" + String(wcForecastStart) + "</label>"
+          "<div class='rg'>"
+          "<label><input type='radio' name='forecastStartToday' value='0'" + String(!forecastStartToday ? " checked" : "") + "> " + String(wcForecastTomorrow) + "</label>"
+          "<label><input type='radio' name='forecastStartToday' value='1'" + String( forecastStartToday ? " checked" : "") + "> " + String(wcForecastToday)    + "</label>"
+          "</div></div>";
   html += "<div class='row'><label>" + String(wcWeatherHeadings) + "</label>" + colourSelect("labelColour",     labelColour)     + "</div>";
   html += "<div class='row'><label>" + String(wcAstroHeadings)   + "</label>" + colourSelect("astrologyColour", astrologyColour) + "</div>";
   html += "</div>";
 
-  // ── Temperature colours ───────────────────────────────────────────────────
+  // ── Temperature colours ────────────────────────────────────────────────────
   html += section(wcSecTempColours);
   html += "<div class='card'>";
   html += "<div class='row'><label>" + String(wcHighTempThresh) + "</label>"
@@ -349,7 +405,7 @@ static String buildPage(bool saved = false) {
   html += "<div class='row'><label>" + String(wcLowTempColour)  + "</label>" + colourSelect("lowTempColour",  lowTempColour)  + "</div>";
   html += "</div>";
 
-  // ── Precipitation colours ─────────────────────────────────────────────────
+  // ── Precipitation colours ──────────────────────────────────────────────────
   html += section(wcSecPrecipColours);
   html += "<div class='card'>";
   html += "<div class='row'><label>" + String(wcHighPrecipThresh) + "</label>"
@@ -361,7 +417,7 @@ static String buildPage(bool saved = false) {
   html += "<div class='row'><label>" + String(wcLowPOPColour)  + "</label>" + colourSelect("lowPOPColour",  lowPOPColour)  + "</div>";
   html += "</div>";
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  // ── Actions ────────────────────────────────────────────────────────────────
   html += "<div class='actions'>"
           "<button type='submit' class='btn bu'>" + String(wcSaveBtn)   + "</button>"
           "<button type='button' class='btn bc' onclick='window.location.reload()'>" + String(wcCancelBtn) + "</button>"
@@ -369,31 +425,79 @@ static String buildPage(bool saved = false) {
 
   html += "</form>";
 
-  // ── Map script ────────────────────────────────────────────────────────────
- html += "<script>"
-          "var lt=parseFloat(document.getElementById('lat').value)||49.154;"
-          "var ln=parseFloat(document.getElementById('lon').value)||-122.772;"
+  // ── Map + TZ + Geocoder script ─────────────────────────────────────────────
+  html += "<script>"
+          // Active slot: 1 = TZ1, 2 = TZ2
+          "var active=1;"
+
+          // Switch active slot and pan map to that location
+          "function setActive(n){"
+          "active=n;"
+          "document.getElementById('btn1').classList.toggle('active',n===1);"
+          "document.getElementById('btn2').classList.toggle('active',n===2);"
+          "var la=parseFloat(document.getElementById(n===1?'lat':'lat2').value);"
+          "var lo=parseFloat(document.getElementById(n===1?'lon':'lon2').value);"
+          "if(!isNaN(la)&&!isNaN(lo)){mk.setLatLng([la,lo]);map.setView([la,lo],11);}}"
+
+          // Init map centred on TZ1
+          "var lt=parseFloat(document.getElementById('lat').value)||49.2734;"
+          "var ln=parseFloat(document.getElementById('lon').value)||-123.1037;"
           "var map=L.map('map').setView([lt,ln],11);"
           "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{"
           "attribution:'&copy; OpenStreetMap contributors',maxZoom:18}).addTo(map);"
           "var mk=L.marker([lt,ln],{draggable:true}).addTo(map);"
-          "function uc(a,b){b=((b+180)%360+360)%360-180;"
-          "document.getElementById('lat').value=a.toFixed(4);"
-          "document.getElementById('lon').value=b.toFixed(4);}"
+
+          // Geocoder search box — uses Nominatim, no API key needed
+          // Typing a city name scrolls the map and drops the pin automatically
+          "L.Control.geocoder({"
+          "defaultMarkGeocode:false,"
+          "placeholder:'Search city or address...'"
+          "}).on('markgeocode',function(e){"
+          "var ll=e.geocode.center;"
+          "mk.setLatLng(ll);"
+          "map.setView(ll,12);"
+          "uc(ll.lat,ll.lng);"
+          "}).addTo(map);"
+
+          // Fetch TZ offset from timeapi.io — browser makes the call, ESP never touches it
+          "function fetchTZ(lat,lon,slot){"
+          "var fi=document.getElementById('f'+slot);"
+          "fi.textContent='...';"
+          "fetch('https://timeapi.io/api/timezone/coordinate?latitude='+lat+'&longitude='+lon)"
+          ".then(function(r){return r.json();})"
+          ".then(function(d){"
+          "if(d&&d.currentUtcOffset&&d.currentUtcOffset.seconds!==undefined){"
+          "var off=d.currentUtcOffset.seconds;"
+          "document.getElementById(slot===1?'tz1':'tz2').value=off;"
+          "var h=Math.abs(Math.round(off/3600));"
+          "var sign=off>=0?'+':'-';"
+          "fi.textContent='UTC'+sign+h;}"
+          "else{fi.textContent='?';}"
+          "}).catch(function(){fi.textContent='err';});}"
+
+          // Update coords + fetch TZ for active slot
+          "function uc(a,b){"
+          "b=((b+180)%360+360)%360-180;"
+          "var latId=active===1?'lat':'lat2';"
+          "var lonId=active===1?'lon':'lon2';"
+          "var dlatId=active===1?'d1lat':'d2lat';"
+          "var dlonId=active===1?'d1lon':'d2lon';"
+          "var af=a.toFixed(4),bf=b.toFixed(4);"
+          "document.getElementById(latId).value=af;"
+          "document.getElementById(lonId).value=bf;"
+          "document.getElementById(dlatId).textContent=af;"
+          "document.getElementById(dlonId).textContent=bf;"
+          "fetchTZ(af,bf,active);}"
+
           "mk.on('dragend',function(e){var p=mk.getLatLng();uc(p.lat,p.lng);});"
           "map.on('click',function(e){mk.setLatLng(e.latlng);uc(e.latlng.lat,e.latlng.lng);});"
-          "document.getElementById('lat').addEventListener('change',function(){"
-          "var a=parseFloat(this.value),b=parseFloat(document.getElementById('lon').value);"
-          "if(!isNaN(a)&&!isNaN(b)){mk.setLatLng([a,b]);map.setView([a,b]);}});"
-          "document.getElementById('lon').addEventListener('change',function(){"
-          "var a=parseFloat(document.getElementById('lat').value),b=parseFloat(this.value);"
-          "if(!isNaN(a)&&!isNaN(b)){mk.setLatLng([a,b]);map.setView([a,b]);}});"
+
+          // Colour selector functions — unchanged
           "function csToggle(id){"
           "var d=document.getElementById(id+'_drop');"
           "d.classList.toggle('open');"
           "document.querySelectorAll('.cs-drop').forEach(function(x){"
-          "if(x.id!==id+'_drop')x.classList.remove('open');});"
-          "}"
+          "if(x.id!==id+'_drop')x.classList.remove('open');});}"
           "function csSelect(id,name,css){"
           "document.getElementById(id+'_val').value=name;"
           "document.getElementById(id+'_lbl').textContent=name;"
@@ -401,14 +505,13 @@ static String buildPage(bool saved = false) {
           "document.getElementById(id+'_drop').classList.remove('open');"
           "document.querySelectorAll('#'+id+' .cs-opt').forEach(function(x){"
           "x.classList.remove('sel');"
-          "if(x.querySelector('span:last-child').textContent===name)x.classList.add('sel');});"
-          "}"
+          "if(x.querySelector('span:last-child').textContent===name)x.classList.add('sel');});}"
           "document.addEventListener('click',function(e){"
           "if(!e.target.closest('.cs')){"
           "document.querySelectorAll('.cs-drop').forEach(function(x){"
           "x.classList.remove('open');});}});"
           "</script>";
-          
+
   html += "</main></body></html>";
   return html;
 }
@@ -423,9 +526,13 @@ static void handleRoot() {
 }
 
 static void handleSave() {
-  if (server.hasArg("units"))               units                 = server.arg("units");
-  if (server.hasArg("latitude"))            latitude              = server.arg("latitude");
-  if (server.hasArg("longitude"))           longitude             = server.arg("longitude");
+  if (server.hasArg("units"))       units     = server.arg("units");
+  if (server.hasArg("latitude"))    latitude  = server.arg("latitude");
+  if (server.hasArg("longitude"))   longitude = server.arg("longitude");
+  if (server.hasArg("tzOffset"))    tzOffset  = server.arg("tzOffset").toInt();
+  if (server.hasArg("latitude2"))   latitude2  = server.arg("latitude2");
+  if (server.hasArg("longitude2"))  longitude2 = server.arg("longitude2");
+  if (server.hasArg("tzOffset2"))   tzOffset2  = server.arg("tzOffset2").toInt();
 
   show24Hour            = server.hasArg("show24Hour");
   autoDimDusk           = server.hasArg("autoDimDusk");
@@ -433,20 +540,22 @@ static void handleSave() {
   showPrecipProbability = server.hasArg("showPrecipProbability");
   showUVindex           = server.hasArg("showUVindex");
   show6hrForecast       = server.hasArg("show6hrForecast");
+  forecastStartToday    = server.hasArg("forecastStartToday") &&
+                          server.arg("forecastStartToday") == "1";
 
-  if (server.hasArg("highTempVal"))         highTempVal           = server.arg("highTempVal").toInt();
-  if (server.hasArg("lowTempVal"))          lowTempVal            = server.arg("lowTempVal").toInt();
-  if (server.hasArg("highTempColour"))      highTempColour        = colourFromName(server.arg("highTempColour"));
-  if (server.hasArg("midTempColour"))       midTempColour         = colourFromName(server.arg("midTempColour"));
-  if (server.hasArg("lowTempColour"))       lowTempColour         = colourFromName(server.arg("lowTempColour"));
-  if (server.hasArg("highPrecipProb"))      highPrecipProb        = server.arg("highPrecipProb").toInt();
-  if (server.hasArg("lowPrecipProb"))       lowPrecipProb         = server.arg("lowPrecipProb").toInt();
-  if (server.hasArg("highPOPColour"))       highPOPColour         = colourFromName(server.arg("highPOPColour"));
-  if (server.hasArg("midPOPColour"))        midPOPColour          = colourFromName(server.arg("midPOPColour"));
-  if (server.hasArg("lowPOPColour"))        lowPOPColour          = colourFromName(server.arg("lowPOPColour"));
-  if (server.hasArg("labelColour"))         labelColour           = colourFromName(server.arg("labelColour"));
-  if (server.hasArg("astrologyColour"))     astrologyColour       = colourFromName(server.arg("astrologyColour"));
-  if (server.hasArg("blDusk"))              blDusk                = server.arg("blDusk").toInt();
+  if (server.hasArg("highTempVal"))     highTempVal     = server.arg("highTempVal").toInt();
+  if (server.hasArg("lowTempVal"))      lowTempVal      = server.arg("lowTempVal").toInt();
+  if (server.hasArg("highTempColour"))  highTempColour  = colourFromName(server.arg("highTempColour"));
+  if (server.hasArg("midTempColour"))   midTempColour   = colourFromName(server.arg("midTempColour"));
+  if (server.hasArg("lowTempColour"))   lowTempColour   = colourFromName(server.arg("lowTempColour"));
+  if (server.hasArg("highPrecipProb"))  highPrecipProb  = server.arg("highPrecipProb").toInt();
+  if (server.hasArg("lowPrecipProb"))   lowPrecipProb   = server.arg("lowPrecipProb").toInt();
+  if (server.hasArg("highPOPColour"))   highPOPColour   = colourFromName(server.arg("highPOPColour"));
+  if (server.hasArg("midPOPColour"))    midPOPColour    = colourFromName(server.arg("midPOPColour"));
+  if (server.hasArg("lowPOPColour"))    lowPOPColour    = colourFromName(server.arg("lowPOPColour"));
+  if (server.hasArg("labelColour"))     labelColour     = colourFromName(server.arg("labelColour"));
+  if (server.hasArg("astrologyColour")) astrologyColour = colourFromName(server.arg("astrologyColour"));
+  if (server.hasArg("blDusk"))          blDusk          = server.arg("blDusk").toInt();
 
   saveConfig();
   configUpdated = true;
