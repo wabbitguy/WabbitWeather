@@ -189,7 +189,7 @@ bool OW_Weather::parseRequest(String url) {
     }
   }
 
-  Serial.println("\nParsing JSON");
+  // Serial.println("\nParsing JSON");
 
 #ifdef SHOW_JSON
   int ccount = 0;
@@ -220,10 +220,10 @@ bool OW_Weather::parseRequest(String url) {
     }
   }
 
-  Serial.println("");
-  Serial.print("Done in ");
-  Serial.print(millis() - dt);
-  Serial.println(" ms\n");
+  // Serial.println("");
+  // Serial.print("Done in ");
+  // Serial.print(millis() - dt);
+  // Serial.println(" ms\n");
 
   parser.reset();
   client.stop();

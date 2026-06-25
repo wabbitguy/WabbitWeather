@@ -144,9 +144,9 @@ uint32_t GfxUi::read32(fs::File &f) {
 //====================================================================================
 void GfxUi::drawJpeg(String filename, int xpos, int ypos) {
 
-  Serial.println("===========================");
-  Serial.print("Drawing file: "); Serial.println(filename);
-  Serial.println("===========================");
+  // Serial.println("===========================");
+  // Serial.print("Drawing file: "); Serial.println(filename);
+  // Serial.println("===========================");
 
   // Open the named file (the Jpeg decoder library will close it after rendering image)
   fs::File jpegFile = SPIFFS.open( filename, "r");    // File handle reference for SPIFFS
@@ -256,8 +256,8 @@ void GfxUi::jpegRender(int xpos, int ypos) {
   drawTime = millis() - drawTime; // Calculate the time it took
 
   // print the results to the serial port
-  Serial.print  ("Total render time was    : "); Serial.print(drawTime); Serial.println(" ms");
-  Serial.println("=====================================");
+  // Serial.print  ("Total render time was    : "); Serial.print(drawTime); Serial.println(" ms");
+  // Serial.println("=====================================");
 
 }
 

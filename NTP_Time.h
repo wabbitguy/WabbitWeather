@@ -78,7 +78,7 @@ int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffse
   String url = "https://timeapi.io/api/timezone/coordinate?latitude="
                + lat + "&longitude=" + lon;
 
-  Serial.println("TZ fetch: " + url);
+  // Serial.println("TZ fetch: " + url);
   http.begin(url);
   http.setTimeout(5000);   // 5 second timeout — don't block the display loop long
   int code = http.GET();
