@@ -133,11 +133,17 @@ Open `All_Settings.h` and uncomment the language you want:
 
 ## Partition Scheme
 
-WabbitWeather uses a **2MB App / 2MB LittleFS** partition scheme to accommodate the fonts and weather icon set. Select this in the Arduino IDE under Tools → Partition Scheme before flashing.
+WabbitWeather uses a **NO OTA 2MB App / 2MB LittleFS** partition scheme to accommodate the fonts and weather icon set. Select this in the Arduino IDE under Tools → Partition Scheme before flashing.
 
 ---
 
 ## Version History
+
+### v1.5.1
+- Removed search icon from map and placed two search options by TZ lines
+- Adjusted number of locations found for easier selection
+- Fixed phone display from auto resizing on search
+- Search can be by city, address or country
 
 ### v1.5.0
 - Dual location support — tap the weather icon area to toggle between TZ1 and TZ2
