@@ -90,6 +90,12 @@ Set high and low precipitation probability thresholds and choose colours for eac
 
 ---
 
+## Partition Scheme
+
+WabbitWeather uses a **NO OTA 2MB App / 2MB LittleFS** partition scheme to accommodate the fonts and weather icon set. Select this in the Arduino IDE under Tools → Partition Scheme before flashing.
+
+---
+
 ## First Time Setup
 
 1. Make your language selection first in the All_Settings.h file (see section below)
@@ -102,6 +108,8 @@ Set high and low precipitation probability thresholds and choose colours for eac
 8. Click the map to set your location — timezone is detected automatically
 9. Hit **Update & Save**
 10. Done — the display updates immediately with your local weather
+
+If you're new to Arduino, read down further for detailed installation steps
 
 ---
 
@@ -131,9 +139,52 @@ Open `All_Settings.h` and uncomment the language you want:
 
 ---
 
-## Partition Scheme
+## Installation
 
-WabbitWeather uses a **NO OTA 2MB App / 2MB LittleFS** partition scheme to accommodate the fonts and weather icon set. Select this in the Arduino IDE under Tools → Partition Scheme before flashing.
+### 1. Download and rename the sketch folder
+
+Download the zip from GitHub and extract it. GitHub names the extracted folder `WabbitWeather-master`. **Arduino requires the sketch folder name to exactly match the `.ino` filename**, so you must rename it before opening the sketch.
+
+Rename `WabbitWeather-master` → `WabbitWeather`, then open `WabbitWeather/WabbitWeather.ino` in the Arduino IDE.
+
+If you skip this step the `.cpp` files won't compile and you'll see a wall of "undefined reference" linker errors.
+
+### 2. Select the correct board and partition scheme
+
+In **Tools → Board**, select **ESP32 Dev Module**, then set:
+
+| Setting | Value |
+|---|---|
+| Partition Scheme | **No OTA (2MB APP/2MB SPIFFS)** |
+| CPU Frequency | 240MHz (WiFi/BT) |
+| Flash Size | 4MB (32Mb) |
+| Upload Speed | 115200 |
+
+> ⚠️ Do **not** select the FATFS variant — WabbitWeather uses LittleFS and the icons and fonts stored on flash will not be found at runtime.
+> Upload the data partition **after** uploading the sketch, with the correct port selected.
+
+### 3. Upload the LittleFS data partition
+
+The weather icons and fonts live in the `data` folder and must be uploaded to the ESP32's flash separately — uploading the sketch alone is not enough. The method differs between IDE versions. If you've never uploaded LittleFS data before or get an error while trying to because the uploader is not installed keep reading...
+
+**Arduino IDE 1.x**
+
+Install the ESP32 LittleFS upload plugin:
+- Download from: https://github.com/lorol/LITTLEFS_esp32fs-plugin/releases
+- Place the `.jar` file in `<Arduino sketchbook>/tools/ESP32LittleFS/tool/`
+- Restart the IDE
+- Use **Tools → ESP32 LittleFS Data Upload**
+
+**Arduino IDE 2.x**
+
+Install the separate upload tool:
+- Download from: https://github.com/earlephilhower/arduino-littlefs-upload/releases
+- Place the `.vsix` file in the correct location per the instructions on that page
+- Restart the IDE
+- On macOS, press [⌘] + [Shift] + [P], Windows: [Ctrl] + [Shift] + [P]
+- Type in Upload and you'll see "Upload LittleFS to PICO/ESP8266/ESP32"
+
+> ⚠️ The serial monitor must be **closed** before uploading the data partition.
 
 ---
 
