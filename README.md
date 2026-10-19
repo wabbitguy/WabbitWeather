@@ -192,6 +192,10 @@ Install the separate upload tool:
 
 ## Version History
 
+###1.5.8
+- Nomination's policy requires cached names so you don't over load them when switch locales
+- When looking up the current locale, if it failed (rare) memory wasn't recovered. Fixed.
+
 ### V1.5.6
 - Change weather requests to 30 minute intervals
 - Fixed bitmap draw that wasn't using LittleFS properly
