@@ -29,7 +29,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 
-#define WABBIT_VERSION "Version: 1.5.6"
+#define WABBIT_VERSION "Version: 1.5.8"
 
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -161,6 +161,7 @@ void setup() {
   Serial.begin(115200);
 
   tft.init();
+  tft.invertDisplay(false);  // ST7789 panel needs inversion off; don't rely on whichever User_Setup.h is in the library
   tft.fillScreen(TFT_BLACK);
 
   ledcAttach(TFT_BL, TFT_BL_FREQ, TFT_BL_RES);
@@ -321,6 +322,8 @@ void loop() {
   if (configUpdated) {
     configUpdated = false;
     runBdcOnce = false;
+    theCityLocation  = "Unknown";  // coordinates may have changed — drop cached city names
+    theCityLocation2 = "Unknown";
     updateData();
     drawTime();         // redraw clock immediately without waiting for next minute
     updateBacklight();  // change the backlight if needed
@@ -1194,6 +1197,13 @@ void configModeCallback(WiFiManager *myWiFiManager) {
 ***************************************************************************************/
 void findTheLocation() {
   if (runBdcOnce == false) {
+    // Reuse the cached name if we already have one — Nominatim asks clients to cache results.
+    // Cache lives in RAM only: cleared on reboot and on config save.
+    String &cached = altLocation ? theCityLocation2 : theCityLocation;
+    if (cached != "Unknown") {
+      runBdcOnce = true;
+      return;
+    }
     BDCcurrent = new BDC_current;
     // Look up whichever location is currently active
     String lat = altLocation ? latitude2 : latitude;
@@ -1203,12 +1213,11 @@ void findTheLocation() {
       if (BDCcurrent->city.isEmpty() && !BDCcurrent->locality.isEmpty())
         BDCcurrent->city = BDCcurrent->locality;
       String cityName = BDCcurrent->city;
-      delete BDCcurrent;
       if (cityName.length() > 26) cityName = "Local Weather";
-      if (altLocation) theCityLocation2 = cityName;
-      else theCityLocation = cityName;
+      cached = cityName;
       runBdcOnce = true;
     }
+    delete BDCcurrent;  // free on failure too, or every failed lookup leaks one struct
   }
 }
 

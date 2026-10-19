@@ -387,8 +387,9 @@ static String buildPage(bool saved = false) {
 
   // Search box — sits outside the map, no Leaflet event conflicts
   html += "<div class='srchwrap' id='srchwrap'>"
-          "<input class='srchinput' id='srchinput' type='text' placeholder='Search address, city, country...'"
-          " oninput='doSearch(this.value)' onkeydown='if(event.key===\"Escape\")closeSearch()'>"
+          "<input class='srchinput' id='srchinput' type='text' placeholder='Search address, city, country... (Enter)'"
+          " onkeydown='if(event.key===\"Enter\"){event.preventDefault();doSearch(this.value.trim());}"
+          "else if(event.key===\"Escape\")closeSearch()'>"
           "<div id='srchresults' class='srchresults'></div>"
           "</div>";
 
@@ -477,21 +478,21 @@ static String buildPage(bool saved = false) {
           "var mk=L.marker([lt,ln],{draggable:true}).addTo(map);"
 
           // Custom search — outside the map div, no Leaflet event conflicts
-          "var searchSlot=1,searchTimer=null;"
+          // Nominatim policy forbids search-as-you-type: query only on Enter, never repeat the last query
+          "var searchSlot=1,lastQuery='';"
           "function openSearch(slot){"
           "searchSlot=slot;setActive(slot);"
           "var w=document.getElementById('srchwrap');"
           "w.style.display='block';"
           "var inp=document.getElementById('srchinput');"
-          "inp.value='';inp.focus();"
+          "inp.value='';inp.focus();lastQuery='';"
           "document.getElementById('srchresults').innerHTML='';}"
           "function closeSearch(){"
           "document.getElementById('srchwrap').style.display='none';"
           "document.getElementById('srchresults').innerHTML='';}"
           "function doSearch(q){"
-          "clearTimeout(searchTimer);"
-          "if(q.length<2){document.getElementById('srchresults').innerHTML='';return;}"
-          "searchTimer=setTimeout(function(){"
+          "if(q.length<2||q===lastQuery)return;"
+          "lastQuery=q;"
           "fetch('https://nominatim.openstreetmap.org/search?format=json&limit=10&q='+encodeURIComponent(q))"
           ".then(function(r){return r.json();})"
           ".then(function(data){"
@@ -510,8 +511,7 @@ static String buildPage(bool saved = false) {
           "div.appendChild(d);});}"
           ").catch(function(){"
           "document.getElementById('srchresults').innerHTML="
-          "'<div class=\"srchresult\" style=\"color:var(--danger)\">Error</div>';});"
-          "},400);}"
+          "'<div class=\"srchresult\" style=\"color:var(--danger)\">Error</div>';lastQuery='';});}"
           // Close search when clicking outside
           "document.addEventListener('click',function(e){"
           "if(!e.target.closest('#srchwrap')&&!e.target.closest('.tzsearch'))closeSearch();});"
