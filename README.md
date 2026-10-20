@@ -67,7 +67,7 @@ TZ1 is your primary location. TZ2 is an alternate location (family in another ci
 
 ### Display Settings
 
-<img width="640" height="512" alt="Display" src="https://github.com/user-attachments/assets/b2cc595c-fd33-4768-afa2-a0b8abb30452" />
+<img width="640" height="545" alt="DisplaySettings" src="https://github.com/user-attachments/assets/32ed824d-8d4b-49bb-af27-27d582a2343a" />
 
 - Imperial (°F) or Metric (°C)
 - 12 or 24 hour clock
@@ -191,6 +191,12 @@ Install the separate upload tool:
 ---
 
 ## Version History
+
+###1.6.0
+- Added optional weather icons from the original ThingPulse project
+- Added a hostname change in All_Settings.h for multiple stations on same network (slight name changes)
+- Removed unused Language.h file, language settings remain in All_Settings.h
+- More code cleanup done
 
 ###1.5.8
 - Nomination's policy requires cached names so you don't over load them when switch locales
