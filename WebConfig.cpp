@@ -1,0 +1,684 @@
+// WebConfig.cpp — WabbitWeather web configuration portal
+// All globals (units, latitude, etc.) are visible because Arduino
+// compiles all .ino/.cpp files in the sketch folder together.
+// All_Settings.h is included with SETTINGS_LANGUAGE_ONLY defined, which pulls
+// in just the language selection; the full file would cause duplicate definitions.
+
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <LittleFS.h>
+#include <WiFi.h>
+#include <WiFiManager.h>
+#include "WebConfig.h"
+#define SETTINGS_LANGUAGE_ONLY  // language selection only — see All_Settings.h
+#include "All_Settings.h"
+#include "Translation.h"
+
+// ── Web server instance ────────────────────────────────────────────────────
+static WebServer server(80);
+
+// mDNS name, built from HOSTNAME in startWebConfig() — e.g. "wabbitweather"
+// so the page is at http://wabbitweather.local
+static String mdnsName = "wabbitweather";
+
+// ── Forward declarations of globals from All_Settings.h ───────────────────
+extern String units;
+extern String latitude;
+extern String longitude;
+extern int32_t tzOffset;
+extern String latitude2;
+extern String longitude2;
+extern int32_t tzOffset2;
+extern bool show24Hour;
+extern bool autoDimDusk;
+extern bool showBarometric;
+extern bool showPrecipProbability;
+extern bool showUVindex;
+extern bool show6hrForecast;
+extern bool forecastStartToday;
+extern uint8_t iconSet;
+extern uint8_t highTempVal;
+extern int8_t lowTempVal;
+extern uint32_t highTempColour;
+extern uint32_t midTempColour;
+extern uint32_t lowTempColour;
+extern uint8_t highPrecipProb;
+extern uint8_t lowPrecipProb;
+extern uint32_t highPOPColour;
+extern uint32_t midPOPColour;
+extern uint32_t lowPOPColour;
+extern uint32_t labelColour;
+extern uint32_t astrologyColour;
+extern uint8_t blDusk;
+extern volatile bool configUpdated;
+
+// ── fetchTZOffset declared in NTP_Time.h ──────────────────────────────────
+extern int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffset);
+
+// ===========================================================================
+// Config file: /config.txt  (key=value, one per line, # = comment)
+// ===========================================================================
+
+void loadConfig() {
+  if (!LittleFS.exists(CONFIG_FILE)) {
+    Serial.println("WebConfig: no config file, writing defaults");
+    saveConfig();
+    return;
+  }
+
+  File f = LittleFS.open(CONFIG_FILE, "r");
+  if (!f) {
+    Serial.println("WebConfig: failed to open config");
+    return;
+  }
+
+  while (f.available()) {
+    String line = f.readStringUntil('\n');
+    line.trim();
+    if (line.startsWith("#") || line.length() == 0) continue;
+    int sep = line.indexOf('=');
+    if (sep < 0) continue;
+    String key = line.substring(0, sep);
+    key.trim();
+    String value = line.substring(sep + 1);
+    value.trim();
+
+    if (key == "units") units = value;
+    else if (key == "latitude") latitude = value;
+    else if (key == "longitude") longitude = value;
+    else if (key == "tzOffset") tzOffset = value.toInt();
+    else if (key == "latitude2") latitude2 = value;
+    else if (key == "longitude2") longitude2 = value;
+    else if (key == "tzOffset2") tzOffset2 = value.toInt();
+    else if (key == "show24Hour") show24Hour = (value == "true");
+    else if (key == "autoDimDusk") autoDimDusk = (value == "true");
+    else if (key == "showBarometric") showBarometric = (value == "true");
+    else if (key == "showPrecipProbability") showPrecipProbability = (value == "true");
+    else if (key == "showUVindex") showUVindex = (value == "true");
+    else if (key == "show6hrForecast") show6hrForecast = (value == "true");
+    else if (key == "forecastStartToday") forecastStartToday = (value == "true");
+    else if (key == "iconSet") iconSet = value.toInt();
+    else if (key == "highTempVal") highTempVal = value.toInt();
+    else if (key == "lowTempVal") lowTempVal = value.toInt();
+    else if (key == "highTempColour") highTempColour = colourFromName(value);
+    else if (key == "midTempColour") midTempColour = colourFromName(value);
+    else if (key == "lowTempColour") lowTempColour = colourFromName(value);
+    else if (key == "highPrecipProb") highPrecipProb = value.toInt();
+    else if (key == "lowPrecipProb") lowPrecipProb = value.toInt();
+    else if (key == "highPOPColour") highPOPColour = colourFromName(value);
+    else if (key == "midPOPColour") midPOPColour = colourFromName(value);
+    else if (key == "lowPOPColour") lowPOPColour = colourFromName(value);
+    else if (key == "labelColour") labelColour = colourFromName(value);
+    else if (key == "astrologyColour") astrologyColour = colourFromName(value);
+    else if (key == "blDusk") blDusk = value.toInt();
+  }
+  f.close();
+  // Serial.println("WebConfig: loaded " CONFIG_FILE);
+}
+
+void saveConfig() {
+  File f = LittleFS.open(CONFIG_FILE, "w");
+  if (!f) {
+    Serial.println("WebConfig: failed to save config");
+    return;
+  }
+
+  f.println("# WabbitWeather configuration — edit via the web page");
+  f.println("units=" + units);
+  f.println("latitude=" + latitude);
+  f.println("longitude=" + longitude);
+  f.println("tzOffset=" + String(tzOffset));
+  f.println("latitude2=" + latitude2);
+  f.println("longitude2=" + longitude2);
+  f.println("tzOffset2=" + String(tzOffset2));
+  f.println("show24Hour=" + String(show24Hour ? "true" : "false"));
+  f.println("autoDimDusk=" + String(autoDimDusk ? "true" : "false"));
+  f.println("showBarometric=" + String(showBarometric ? "true" : "false"));
+  f.println("showPrecipProbability=" + String(showPrecipProbability ? "true" : "false"));
+  f.println("showUVindex=" + String(showUVindex ? "true" : "false"));
+  f.println("show6hrForecast=" + String(show6hrForecast ? "true" : "false"));
+  f.println("forecastStartToday=" + String(forecastStartToday ? "true" : "false"));
+  f.println("iconSet=" + String(iconSet));
+  f.println("highTempVal=" + String(highTempVal));
+  f.println("lowTempVal=" + String(lowTempVal));
+  f.println("highTempColour=" + String(nameFromColour(highTempColour)));
+  f.println("midTempColour=" + String(nameFromColour(midTempColour)));
+  f.println("lowTempColour=" + String(nameFromColour(lowTempColour)));
+  f.println("highPrecipProb=" + String(highPrecipProb));
+  f.println("lowPrecipProb=" + String(lowPrecipProb));
+  f.println("highPOPColour=" + String(nameFromColour(highPOPColour)));
+  f.println("midPOPColour=" + String(nameFromColour(midPOPColour)));
+  f.println("lowPOPColour=" + String(nameFromColour(lowPOPColour)));
+  f.println("labelColour=" + String(nameFromColour(labelColour)));
+  f.println("astrologyColour=" + String(nameFromColour(astrologyColour)));
+  f.println("blDusk=" + String(blDusk));
+  f.close();
+  // Serial.println("WebConfig: saved " CONFIG_FILE);
+}
+
+// ===========================================================================
+// HTML helpers
+// ===========================================================================
+
+static String colourSelect(const String& name, uint32_t currentValue) {
+  String curName = "Unknown";
+  String curCss = "rgb(255,255,255)";
+  for (uint8_t i = 0; i < TFT_COLOUR_COUNT; i++) {
+    if (TFT_COLOURS[i].value == currentValue) {
+      curName = TFT_COLOURS[i].name;
+      uint32_t c = TFT_COLOURS[i].value;
+      uint8_t r = ((c >> 11) & 0x1F) << 3;
+      uint8_t g = ((c >> 5) & 0x3F) << 2;
+      uint8_t b = ((c >> 0) & 0x1F) << 3;
+      char css[24];
+      snprintf(css, sizeof(css), "rgb(%d,%d,%d)", r, g, b);
+      curCss = String(css);
+      break;
+    }
+  }
+
+  String id = "cs_" + name;
+  String html = "<div class='cs' id='" + id + "'>"
+                                              "<input type='hidden' name='"
+                + name + "' id='" + id + "_val' value='" + curName + "'>"
+                                                                     "<div class='cs-sel' onclick='csToggle(\""
+                + id + "\")'>"
+                       "<div class='cs-swatch' style='background:"
+                + curCss + "'></div>"
+                           "<span id='"
+                + id + "_lbl'>" + curName + "</span>"
+                                            "<span style='margin-left:auto;color:var(--muted)'>&#9660;</span>"
+                                            "</div>"
+                                            "<div class='cs-drop' id='"
+                + id + "_drop'>";
+
+  for (uint8_t i = 0; i < TFT_COLOUR_COUNT; i++) {
+    uint32_t c = TFT_COLOURS[i].value;
+    uint8_t r = ((c >> 11) & 0x1F) << 3;
+    uint8_t g = ((c >> 5) & 0x3F) << 2;
+    uint8_t b = ((c >> 0) & 0x1F) << 3;
+    bool sel = (TFT_COLOURS[i].value == currentValue);
+    String cname = TFT_COLOURS[i].name;
+    String rs = String(r), gs = String(g), bs = String(b);
+
+    html += "<div class='cs-opt" + String(sel ? " sel" : "") + "' "
+                                                               "onclick='csSelect(\""
+            + id + "\",\"" + cname + "\"," + "&quot;rgb(" + rs + "," + gs + "," + bs + ")&quot;)'>"
+                                                                                       "<div class='cs-swatch' style='background:rgb("
+            + rs + "," + gs + "," + bs + ")'></div>"
+                                         "<span style='color:rgb("
+            + rs + "," + gs + "," + bs + ");font-weight:600'>" + cname + "</span>"
+                                                                         "</div>";
+  }
+
+  html += "</div></div>";
+  return html;
+}
+
+static String toggle(const String& name, bool value, const String& label) {
+  return "<label class='toggle'>"
+         "<input type='checkbox' name='"
+         + name + "'" + (value ? " checked" : "") + ">"
+                                                    "<span class='slider'></span>"
+                                                    "<span class='tl'>"
+         + label + "</span>"
+                   "</label>";
+}
+
+static String section(const String& title) {
+  return "<h2>" + title + "</h2>";
+}
+
+// ===========================================================================
+// Full page HTML
+// ===========================================================================
+
+static String buildPage(bool saved = false) {
+  String ip = WiFi.localIP().toString();
+
+  String html = F("<!DOCTYPE html><html lang='en'><head>"
+                  "<meta charset='UTF-8'>"
+                  "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>"
+                  "<title>WabbitWeather</title>"
+                  "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>"
+                  "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
+                  "<style>"
+                  ":root{--bg:#121212;--card:#1e1e1e;--bdr:#333;--txt:#e0e0e0;--muted:#888;"
+                  "--accent:#4fc3f7;--danger:#ef5350;}"
+                  "*{box-sizing:border-box;margin:0;padding:0}"
+                  "body{background:var(--bg);color:var(--txt);font-family:sans-serif;font-size:15px}"
+                  "header{background:var(--card);border-bottom:1px solid var(--bdr);padding:14px 20px;"
+                  "display:flex;align-items:center;justify-content:space-between;"
+                  "position:sticky;top:0;z-index:100}"
+                  "header h1{font-size:20px;font-weight:600;color:var(--accent);letter-spacing:1px}"
+                  "header .ip{font-size:11px;color:var(--muted);margin-top:2px}"
+                  ".wreset{background:none;border:1px solid var(--danger);color:var(--danger);"
+                  "border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer}"
+                  ".wreset:hover{background:rgba(239,83,80,0.12)}"
+                  "main{max-width:700px;margin:0 auto;padding:20px 16px 50px}"
+                  ".saved{background:#1b3a1b;border:1px solid #4caf50;color:#81c784;border-radius:8px;"
+                  "padding:10px 16px;margin-bottom:16px;font-size:14px}"
+                  "h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;"
+                  "color:var(--accent);margin:28px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bdr)}"
+                  ".card{background:var(--card);border:1px solid var(--bdr);border-radius:10px;"
+                  "padding:16px;display:flex;flex-direction:column;gap:14px}"
+                  ".row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}"
+                  ".row>label:first-child{font-size:14px;flex:1;min-width:150px}"
+                  "input[type=text],input[type=number]{background:#1a1a1a;border:1px solid var(--bdr);"
+                  "border-radius:6px;color:var(--txt);font-size:14px;padding:7px 10px;width:100%;max-width:210px}"
+                  "input:focus{outline:none;border-color:var(--accent)}"
+                  ".rg{display:flex;gap:8px}"
+                  ".rg label{display:flex;align-items:center;gap:6px;background:#1a1a1a;"
+                  "border:1px solid var(--bdr);border-radius:6px;padding:6px 14px;cursor:pointer;"
+                  "font-size:14px;min-width:unset;flex:unset}"
+                  ".rg input{accent-color:var(--accent)}"
+                  ".rg label:has(input:checked){border-color:var(--accent);color:var(--accent)}"
+                  ".toggle{display:flex;align-items:center;gap:10px;cursor:pointer;width:100%}"
+                  ".toggle input{display:none}"
+                  ".slider{width:44px;height:24px;background:#444;border-radius:12px;"
+                  "position:relative;flex-shrink:0;transition:background .2s}"
+                  ".slider::after{content:'';position:absolute;width:18px;height:18px;background:#fff;"
+                  "border-radius:50%;top:3px;left:3px;transition:left .2s}"
+                  ".toggle input:checked+.slider{background:var(--accent)}"
+                  ".toggle input:checked+.slider::after{left:23px}"
+                  ".tl{font-size:14px}"
+                  "#map{width:100%;height:280px;border-radius:8px;border:1px solid var(--bdr);margin-bottom:10px}"
+                  // TZ row styles
+                  ".tzrow{display:flex;align-items:center;gap:8px;padding:3px 0}"
+                  ".tzbtn{background:#1a1a1a;border:1px solid var(--bdr);color:var(--muted);"
+                  "border-radius:6px;padding:5px 10px;font-size:13px;font-weight:700;cursor:pointer;min-width:40px}"
+                  ".tzbtn.active{border-color:var(--accent);color:var(--accent)}"
+                  ".tzcoord{font-size:12px;color:var(--txt);font-family:monospace;"
+                  "background:#111;border:1px solid var(--bdr);border-radius:6px;"
+                  "padding:4px 7px;min-width:82px;text-align:center}"
+                  ".tzfetch{font-size:11px;color:var(--muted);padding-left:4px}"
+                  ".tzsearch{background:none;border:none;color:var(--accent);font-size:16px;"
+                  "cursor:pointer;padding:2px 6px;line-height:1}"
+                  ".tzsearch:hover{color:#fff}"
+                  ".srchwrap{margin-top:6px;display:none;max-width:80%}"
+                  ".srchinput{width:100%;background:#1a1a1a;border:1px solid var(--accent);"
+                  "border-radius:6px 6px 0 0;color:var(--txt);font-size:16px;"
+                  "padding:8px 12px;outline:none;box-sizing:border-box}"
+                  ".srchresults{background:#1e1e1e;border:1px solid #333;border-top:none;"
+                  "border-radius:0 0 6px 6px}"
+                  ".srchresult{padding:10px 12px;cursor:pointer;font-size:13px;color:#e0e0e0;"
+                  "border-bottom:1px solid #2a2a2a}"
+                  ".srchresult:last-child{border-bottom:none}"
+                  ".srchresult:hover{background:#2a2a2a;color:#4fc3f7}"
+                  // end TZ/search styles
+                  ".actions{display:flex;gap:12px;margin-top:28px;flex-wrap:wrap}"
+                  ".btn{padding:10px 28px;border-radius:8px;font-size:15px;font-weight:600;"
+                  "cursor:pointer;border:2px solid;letter-spacing:.5px}"
+                  ".bu{background:var(--accent);border-color:var(--accent);color:#000}"
+                  ".bu:hover{opacity:.85}"
+                  ".bc{background:transparent;border-color:var(--muted);color:var(--muted)}"
+                  ".bc:hover{border-color:var(--txt);color:var(--txt)}"
+                  ".mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);"
+                  "z-index:200;align-items:center;justify-content:center}"
+                  ".mbg.open{display:flex}"
+                  ".modal{background:var(--card);border:1px solid var(--danger);border-radius:12px;"
+                  "padding:28px 24px;max-width:340px;width:90%;text-align:center}"
+                  ".modal h3{color:var(--danger);margin-bottom:12px;font-size:17px}"
+                  ".modal p{color:var(--muted);font-size:14px;margin-bottom:20px;line-height:1.5}"
+                  ".mbtns{display:flex;gap:10px;justify-content:center}"
+                  ".mok{background:var(--danger);border:none;color:#fff;padding:9px 22px;"
+                  "border-radius:7px;font-size:14px;font-weight:600;cursor:pointer}"
+                  ".mno{background:transparent;border:1px solid var(--muted);color:var(--muted);"
+                  "padding:9px 22px;border-radius:7px;font-size:14px;cursor:pointer}"
+                  ".cs{position:relative;width:100%;max-width:210px}"
+                  ".cs-sel{background:#1a1a1a;border:1px solid var(--bdr);border-radius:6px;"
+                  "color:var(--txt);font-size:14px;padding:7px 10px;cursor:pointer;"
+                  "display:flex;align-items:center;gap:8px;user-select:none}"
+                  ".cs-sel:hover{border-color:var(--accent)}"
+                  ".cs-swatch{width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid #444}"
+                  ".cs-drop{display:none;position:absolute;top:100%;left:0;right:0;"
+                  "background:#1a1a1a;border:1px solid var(--bdr);border-radius:6px;"
+                  "max-height:200px;overflow-y:auto;z-index:999;margin-top:4px}"
+                  ".cs-drop.open{display:block}"
+                  ".cs-opt{display:flex;align-items:center;gap:8px;padding:7px 10px;"
+                  "cursor:pointer;font-size:14px}"
+                  ".cs-opt:hover{background:#2a2a2a}"
+                  ".cs-opt.sel{background:#0f3460}"
+                  "@media(max-width:480px){.row{flex-direction:column;align-items:flex-start}"
+                  "input[type=text],input[type=number]{max-width:100%}.cs{max-width:100%}}"
+                  "</style></head><body>");
+
+  // ── Header ─────────────────────────────────────────────────────────────────
+  html += "<header><div><h1>&#9928; " + String(wcTitle) + "</h1>"
+          "<div class='ip'>" + ip + " &nbsp;|&nbsp; " + mdnsName + ".local</div></div>"
+          "<button class='wreset' onclick='document.getElementById(\"wm\").classList.add(\"open\")'>"
+          + String(wcWifiResetBtn) + "</button></header>";
+
+  // ── WiFi reset modal ────────────────────────────────────────────────────────
+  html += "<div class='mbg' id='wm'><div class='modal'>"
+          "<h3>" + String(wcWifiResetTitle) + "</h3>"
+          "<p>" + String(wcWifiResetBody) + "</p>"
+          "<div class='mbtns'>"
+          "<button class='mok' onclick='window.location=\"/wifireset\"'>" + String(wcWifiResetYes) + "</button>"
+          "<button class='mno' onclick='document.getElementById(\"wm\").classList.remove(\"open\")'>" + String(wcWifiResetCancel) + "</button>"
+          "</div></div></div>";
+
+  html += "<main>";
+
+  if (saved) html += "<div class='saved'>" + String(wcSaved) + "</div>";
+
+  html += "<form method='POST' action='/save'>";
+
+  // ── Location ───────────────────────────────────────────────────────────────
+  html += section(wcSecLocation);
+  html += "<div class='card'>";
+  html += "<div id='map'></div>";
+  html += "<div style='display:flex;flex-direction:column;gap:4px'>";
+
+  // TZ1 row
+  html += "<div class='tzrow'>"
+          "<button type='button' id='btn1' class='tzbtn active' onclick='setActive(1)'>TZ1</button>"
+          "<span class='tzcoord' id='d1lat'>" + latitude + "</span>"
+          "<span class='tzcoord' id='d1lon'>" + longitude + "</span>"
+          "<span class='tzfetch' id='f1'></span>"
+          "<button type='button' class='tzsearch' onclick='openSearch(1)' title='Search'>&#128269;</button>"
+          "<input type='hidden' id='lat'  name='latitude'   value='" + latitude + "'>"
+          "<input type='hidden' id='lon'  name='longitude'  value='" + longitude + "'>"
+          "<input type='hidden' id='tz1'  name='tzOffset'   value='" + String(tzOffset) + "'>"
+          "</div>";
+
+  // TZ2 row
+  html += "<div class='tzrow'>"
+          "<button type='button' id='btn2' class='tzbtn' onclick='setActive(2)'>TZ2</button>"
+          "<span class='tzcoord' id='d2lat'>" + latitude2 + "</span>"
+          "<span class='tzcoord' id='d2lon'>" + longitude2 + "</span>"
+          "<span class='tzfetch' id='f2'></span>"
+          "<button type='button' class='tzsearch' onclick='openSearch(2)' title='Search'>&#128269;</button>"
+          "<input type='hidden' id='lat2' name='latitude2'  value='" + latitude2 + "'>"
+          "<input type='hidden' id='lon2' name='longitude2' value='" + longitude2 + "'>"
+          "<input type='hidden' id='tz2'  name='tzOffset2'  value='" + String(tzOffset2) + "'>"
+          "</div>";
+
+  // Search box — sits outside the map, no Leaflet event conflicts
+  html += "<div class='srchwrap' id='srchwrap'>"
+          "<input class='srchinput' id='srchinput' type='text' placeholder='Search address, city, country... (Enter)'"
+          " onkeydown='if(event.key===\"Enter\"){event.preventDefault();doSearch(this.value.trim());}"
+          "else if(event.key===\"Escape\")closeSearch()'>"
+          "<div id='srchresults' class='srchresults'></div>"
+          "</div>";
+
+  html += "</div>";  // end tzrows wrapper
+  html += "</div>";  // end location card
+
+  // ── Display ────────────────────────────────────────────────────────────────
+  html += section(wcSecDisplay);
+  html += "<div class='card'>";
+  html += "<div class='row'><label>" + String(wcUnitsLabel) + "</label>"
+          "<div class='rg'>"
+          "<label><input type='radio' name='units' value='imperial'" + String(units == "imperial" ? " checked" : "") + "> " + String(wcImperial) + "</label>"
+          "<label><input type='radio' name='units' value='metric'"   + String(units == "metric"   ? " checked" : "") + "> " + String(wcMetric)   + "</label>"
+          "</div></div>";
+  html += "<div class='row'>" + toggle("show24Hour",    show24Hour,    wcClock24) + "</div>";
+  html += "<div class='row'>" + toggle("autoDimDusk",   autoDimDusk,   wcAutoDim) + "</div>";
+  html += "<div class='row'><label>" + String(wcNightBright) + "</label>"
+          "<div><input type='number' name='blDusk' value='" + String(blDusk) + "' min='0' max='255' style='max-width:90px'>"
+          "<div style='font-size:11px;color:var(--muted);margin-top:4px'>" + String(wcNightBrightHint) + "</div>"
+          "</div></div>";
+  html += "<div class='row'>" + toggle("showBarometric",        showBarometric,        wcShowBaro)   + "</div>";
+  html += "<div class='row'>" + toggle("showPrecipProbability", showPrecipProbability, wcShowPrecip) + "</div>";
+  html += "<div class='row'>" + toggle("showUVindex",           showUVindex,           wcShowUV)     + "</div>";
+  html += "<div class='row'>" + toggle("show6hrForecast",       show6hrForecast,       wcShow6Hr)    + "</div>";
+  html += "<div class='row'><label>" + String(wcForecastStart) + "</label>"
+          "<div class='rg'>"
+          "<label><input type='radio' name='forecastStartToday' value='0'" + String(!forecastStartToday ? " checked" : "") + "> " + String(wcForecastTomorrow) + "</label>"
+          "<label><input type='radio' name='forecastStartToday' value='1'" + String( forecastStartToday ? " checked" : "") + "> " + String(wcForecastToday)    + "</label>"
+          "</div></div>";
+  html += "<div class='row'><label>" + String(wcIconSet) + "</label>"
+          "<div class='rg'>"
+          "<label><input type='radio' name='iconSet' value='0'" + String(iconSet != 1 ? " checked" : "") + "> " + String(wcIconStandard)  + "</label>"
+          "<label><input type='radio' name='iconSet' value='1'" + String(iconSet == 1 ? " checked" : "") + "> " + String(wcIconMeteocons) + "</label>"
+          "</div></div>";
+  html += "<div class='row'><label>" + String(wcWeatherHeadings) + "</label>" + colourSelect("labelColour",     labelColour)     + "</div>";
+  html += "<div class='row'><label>" + String(wcAstroHeadings)   + "</label>" + colourSelect("astrologyColour", astrologyColour) + "</div>";
+  html += "</div>";
+
+  // ── Temperature colours ────────────────────────────────────────────────────
+  html += section(wcSecTempColours);
+  html += "<div class='card'>";
+  html += "<div class='row'><label>" + String(wcHighTempThresh) + "</label>"
+          "<input type='number' name='highTempVal' value='" + String(highTempVal) + "' min='-50' max='150' style='max-width:90px'></div>";
+  html += "<div class='row'><label>" + String(wcLowTempThresh) + "</label>"
+          "<input type='number' name='lowTempVal'  value='" + String(lowTempVal)  + "' min='-50' max='150' style='max-width:90px'></div>";
+  html += "<div class='row'><label>" + String(wcHighTempColour) + "</label>" + colourSelect("highTempColour", highTempColour) + "</div>";
+  html += "<div class='row'><label>" + String(wcMidTempColour)  + "</label>" + colourSelect("midTempColour",  midTempColour)  + "</div>";
+  html += "<div class='row'><label>" + String(wcLowTempColour)  + "</label>" + colourSelect("lowTempColour",  lowTempColour)  + "</div>";
+  html += "</div>";
+
+  // ── Precipitation colours ──────────────────────────────────────────────────
+  html += section(wcSecPrecipColours);
+  html += "<div class='card'>";
+  html += "<div class='row'><label>" + String(wcHighPrecipThresh) + "</label>"
+          "<input type='number' name='highPrecipProb' value='" + String(highPrecipProb) + "' min='0' max='100' style='max-width:90px'></div>";
+  html += "<div class='row'><label>" + String(wcLowPrecipThresh) + "</label>"
+          "<input type='number' name='lowPrecipProb'  value='" + String(lowPrecipProb)  + "' min='0' max='100' style='max-width:90px'></div>";
+  html += "<div class='row'><label>" + String(wcHighPOPColour) + "</label>" + colourSelect("highPOPColour", highPOPColour) + "</div>";
+  html += "<div class='row'><label>" + String(wcMidPOPColour)  + "</label>" + colourSelect("midPOPColour",  midPOPColour)  + "</div>";
+  html += "<div class='row'><label>" + String(wcLowPOPColour)  + "</label>" + colourSelect("lowPOPColour",  lowPOPColour)  + "</div>";
+  html += "</div>";
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  html += "<div class='actions'>"
+          "<button type='submit' class='btn bu'>" + String(wcSaveBtn)   + "</button>"
+          "<button type='button' class='btn bc' onclick='window.location.reload()'>" + String(wcCancelBtn) + "</button>"
+          "</div>";
+
+  html += "</form>";
+
+  // ── Map + TZ + Search script ───────────────────────────────────────────────
+  html += "<script>"
+          // Active slot: 1 = TZ1, 2 = TZ2
+          "var active=1;"
+
+          // Switch active slot and pan map to that location
+          "function setActive(n){"
+          "active=n;"
+          "document.getElementById('btn1').classList.toggle('active',n===1);"
+          "document.getElementById('btn2').classList.toggle('active',n===2);"
+          "var la=parseFloat(document.getElementById(n===1?'lat':'lat2').value);"
+          "var lo=parseFloat(document.getElementById(n===1?'lon':'lon2').value);"
+          "if(!isNaN(la)&&!isNaN(lo)){mk.setLatLng([la,lo]);map.setView([la,lo],11);}}"
+
+          // Init map centred on TZ1
+          "var lt=parseFloat(document.getElementById('lat').value)||49.2734;"
+          "var ln=parseFloat(document.getElementById('lon').value)||-123.1037;"
+          "var map=L.map('map').setView([lt,ln],11);"
+          "L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{"
+          "attribution:'&copy; OpenStreetMap contributors',maxZoom:18}).addTo(map);"
+          "var mk=L.marker([lt,ln],{draggable:true}).addTo(map);"
+
+          // Custom search — outside the map div, no Leaflet event conflicts
+          // Nominatim policy forbids search-as-you-type: query only on Enter, never repeat the last query
+          "var searchSlot=1,lastQuery='';"
+          "function openSearch(slot){"
+          "searchSlot=slot;setActive(slot);"
+          "var w=document.getElementById('srchwrap');"
+          "w.style.display='block';"
+          "var inp=document.getElementById('srchinput');"
+          "inp.value='';inp.focus();lastQuery='';"
+          "document.getElementById('srchresults').innerHTML='';}"
+          "function closeSearch(){"
+          "document.getElementById('srchwrap').style.display='none';"
+          "document.getElementById('srchresults').innerHTML='';}"
+          "function doSearch(q){"
+          "if(q.length<2||q===lastQuery)return;"
+          "lastQuery=q;"
+          "fetch('https://nominatim.openstreetmap.org/search?format=json&limit=10&q='+encodeURIComponent(q))"
+          ".then(function(r){return r.json();})"
+          ".then(function(data){"
+          "var div=document.getElementById('srchresults');"
+          "div.innerHTML='';"
+          "if(!data.length){"
+          "div.innerHTML='<div class=\"srchresult\" style=\"color:var(--muted)\">No results</div>';return;}"
+          "data.forEach(function(item){"
+          "var d=document.createElement('div');"
+          "d.className='srchresult';"
+          "d.textContent=item.display_name;"
+          "d.onclick=function(){"
+          "var la=parseFloat(item.lat),lo=parseFloat(item.lon);"
+          "mk.setLatLng([la,lo]);map.setView([la,lo],12);uc(la,lo);"
+          "closeSearch();};"
+          "div.appendChild(d);});}"
+          ").catch(function(){"
+          "document.getElementById('srchresults').innerHTML="
+          "'<div class=\"srchresult\" style=\"color:var(--danger)\">Error</div>';lastQuery='';});}"
+          // Close search when clicking outside
+          "document.addEventListener('click',function(e){"
+          "if(!e.target.closest('#srchwrap')&&!e.target.closest('.tzsearch'))closeSearch();});"
+
+          // Fetch TZ offset from timeapi.io
+          "function fetchTZ(lat,lon,slot){"
+          "var fi=document.getElementById('f'+slot);"
+          "fi.textContent='...';"
+          "fetch('https://timeapi.io/api/timezone/coordinate?latitude='+lat+'&longitude='+lon)"
+          ".then(function(r){return r.json();})"
+          ".then(function(d){"
+          "if(d&&d.currentUtcOffset&&d.currentUtcOffset.seconds!==undefined){"
+          "var off=d.currentUtcOffset.seconds;"
+          "document.getElementById(slot===1?'tz1':'tz2').value=off;"
+          "var h=Math.abs(Math.round(off/3600));"
+          "var sign=off>=0?'+':'-';"
+          "fi.textContent='UTC'+sign+h;}"
+          "else{fi.textContent='?';}"
+          "}).catch(function(){fi.textContent='err';});}"
+
+          // Update coords + fetch TZ for active slot
+          "function uc(a,b){"
+          "b=((b+180)%360+360)%360-180;"
+          "var latId=active===1?'lat':'lat2';"
+          "var lonId=active===1?'lon':'lon2';"
+          "var dlatId=active===1?'d1lat':'d2lat';"
+          "var dlonId=active===1?'d1lon':'d2lon';"
+          "var af=a.toFixed(4),bf=b.toFixed(4);"
+          "document.getElementById(latId).value=af;"
+          "document.getElementById(lonId).value=bf;"
+          "document.getElementById(dlatId).textContent=af;"
+          "document.getElementById(dlonId).textContent=bf;"
+          "fetchTZ(af,bf,active);}"
+
+          "mk.on('dragend',function(e){var p=mk.getLatLng();uc(p.lat,p.lng);});"
+          "map.on('click',function(e){mk.setLatLng(e.latlng);uc(e.latlng.lat,e.latlng.lng);});"
+
+          // Colour selector functions
+          "function csToggle(id){"
+          "var d=document.getElementById(id+'_drop');"
+          "d.classList.toggle('open');"
+          "document.querySelectorAll('.cs-drop').forEach(function(x){"
+          "if(x.id!==id+'_drop')x.classList.remove('open');});}"
+          "function csSelect(id,name,css){"
+          "document.getElementById(id+'_val').value=name;"
+          "document.getElementById(id+'_lbl').textContent=name;"
+          "document.querySelector('#'+id+' .cs-swatch').style.background=css;"
+          "document.getElementById(id+'_drop').classList.remove('open');"
+          "document.querySelectorAll('#'+id+' .cs-opt').forEach(function(x){"
+          "x.classList.remove('sel');"
+          "if(x.querySelector('span:last-child').textContent===name)x.classList.add('sel');});}"
+          "document.addEventListener('click',function(e){"
+          "if(!e.target.closest('.cs')){"
+          "document.querySelectorAll('.cs-drop').forEach(function(x){"
+          "x.classList.remove('open');});}});"
+          "</script>";
+
+  html += "</main></body></html>";
+  return html;
+}
+
+// ===========================================================================
+// Request handlers
+// ===========================================================================
+
+static void handleRoot() {
+  bool saved = server.hasArg("saved");
+  server.send(200, "text/html", buildPage(saved));
+}
+
+static void handleSave() {
+  if (server.hasArg("units")) units = server.arg("units");
+  if (server.hasArg("latitude")) latitude = server.arg("latitude");
+  if (server.hasArg("longitude")) longitude = server.arg("longitude");
+  if (server.hasArg("tzOffset")) tzOffset = server.arg("tzOffset").toInt();
+  if (server.hasArg("latitude2")) latitude2 = server.arg("latitude2");
+  if (server.hasArg("longitude2")) longitude2 = server.arg("longitude2");
+  if (server.hasArg("tzOffset2")) tzOffset2 = server.arg("tzOffset2").toInt();
+
+  show24Hour = server.hasArg("show24Hour");
+  autoDimDusk = server.hasArg("autoDimDusk");
+  showBarometric = server.hasArg("showBarometric");
+  showPrecipProbability = server.hasArg("showPrecipProbability");
+  showUVindex = server.hasArg("showUVindex");
+  show6hrForecast = server.hasArg("show6hrForecast");
+  forecastStartToday = server.hasArg("forecastStartToday") && server.arg("forecastStartToday") == "1";
+  if (server.hasArg("iconSet")) iconSet = server.arg("iconSet") == "1" ? 1 : 0;
+
+  if (server.hasArg("highTempVal")) highTempVal = server.arg("highTempVal").toInt();
+  if (server.hasArg("lowTempVal")) lowTempVal = server.arg("lowTempVal").toInt();
+  if (server.hasArg("highTempColour")) highTempColour = colourFromName(server.arg("highTempColour"));
+  if (server.hasArg("midTempColour")) midTempColour = colourFromName(server.arg("midTempColour"));
+  if (server.hasArg("lowTempColour")) lowTempColour = colourFromName(server.arg("lowTempColour"));
+  if (server.hasArg("highPrecipProb")) highPrecipProb = server.arg("highPrecipProb").toInt();
+  if (server.hasArg("lowPrecipProb")) lowPrecipProb = server.arg("lowPrecipProb").toInt();
+  if (server.hasArg("highPOPColour")) highPOPColour = colourFromName(server.arg("highPOPColour"));
+  if (server.hasArg("midPOPColour")) midPOPColour = colourFromName(server.arg("midPOPColour"));
+  if (server.hasArg("lowPOPColour")) lowPOPColour = colourFromName(server.arg("lowPOPColour"));
+  if (server.hasArg("labelColour")) labelColour = colourFromName(server.arg("labelColour"));
+  if (server.hasArg("astrologyColour")) astrologyColour = colourFromName(server.arg("astrologyColour"));
+  if (server.hasArg("blDusk")) blDusk = server.arg("blDusk").toInt();
+
+  saveConfig();
+  configUpdated = true;
+
+  server.sendHeader("Location", "/?saved=1");
+  server.send(303);
+}
+
+static void handleWifiReset() {
+  server.send(200, "text/html",
+              "<html><body style='background:#121212;color:#e0e0e0;font-family:sans-serif;"
+              "display:flex;align-items:center;justify-content:center;height:100vh'>"
+              "<div style='text-align:center'><h2 style='color:#ef5350'>"
+                + String(wcWifiResetting) + "</h2><p>" + String(wcWifiResetHotspot) + "</p>"
+                                                                                      "</div></body></html>");
+  delay(1000);
+  WiFiManager wm;
+  wm.resetSettings();
+  ESP.restart();
+}
+
+static void handleNotFound() {
+  server.send(404, "text/plain", "Not found");
+}
+
+// ===========================================================================
+// Public functions
+// ===========================================================================
+
+void startWebConfig(const char* hostName) {
+  // mDNS names are lowercase letters, digits and hyphens — anything else becomes a hyphen
+  mdnsName = "";
+  for (const char* c = hostName; *c; c++) {
+    char ch = tolower(*c);
+    mdnsName += (isalnum(ch) || ch == '-') ? ch : '-';
+  }
+  if (mdnsName.length() == 0) mdnsName = "wabbitweather";
+
+  if (MDNS.begin(mdnsName.c_str())) {
+    Serial.println("WebConfig: mDNS started — http://" + mdnsName + ".local");
+  } else {
+    Serial.println("WebConfig: mDNS failed — use IP");
+  }
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/save", HTTP_POST, handleSave);
+  server.on("/wifireset", HTTP_GET, handleWifiReset);
+  server.onNotFound(handleNotFound);
+  server.begin();
+  Serial.print("WebConfig: running at http://");
+  Serial.println(WiFi.localIP());
+}
+
+void handleWebConfig() {
+  server.handleClient();
+}
