@@ -31,6 +31,7 @@ typedef struct OW_current {
   uint32_t dt = 0;
   uint32_t sunrise = 0;
   uint32_t sunset = 0;
+  uint8_t  is_day = 1;
   float    temp = 0;
   float    feels_like = 0;
   float    pressure = 0;

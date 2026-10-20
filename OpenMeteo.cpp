@@ -87,7 +87,7 @@ bool OW_Weather::getForecast(OW_current *current, OW_hourly *hourly, OW_daily *d
     if (!partialSet) {
       currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,"
                       "cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,"
-                      "weather_code";
+                      "weather_code,is_day";
     } else {
       currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,"
                       "cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,"
@@ -458,8 +458,7 @@ void OW_Weather::fullDataSet(const char *val) {
       wmoToDescription(current->id, current->main, current->description);
       current->icon = "";  // icon resolved at draw time by getMeteoconIcon()
     }
-    // is_day is not needed — getMeteoconIcon() derives day/night from
-    // current->dt vs current->sunrise / current->sunset
+    else if (currentKey == "is_day") current->is_day = value.toInt();  // 1 = day, 0 = night
     return;
   }
 

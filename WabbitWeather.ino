@@ -29,7 +29,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 
-#define WABBIT_VERSION "Version: 1.5.8"
+#define WABBIT_VERSION "Version: 1.6.0"
 
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -48,8 +48,8 @@
 #include <WiFiManager.h>
 
 #include "All_Settings.h"
-#include "Language.h"  // language you want to use
 #include "Translation.h"
+#include "MeteoconIcons.h"  // Meteocons icon set, drawn from flash
 
 #include <JSON_Decoder.h>  // https://github.com/Bodmer/JSON_Decoder
 
@@ -130,6 +130,7 @@ void drawCurrentWeather();
 void drawForecast();
 void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex);
 const char *getMeteoconIcon(uint16_t id, bool today);
+const uint8_t *getMeteoconBitmap(uint16_t id, bool today, bool mini);
 void drawAstronomy();
 void drawSeparator(uint16_t y);
 void fillSegment(int x, int y, int start_angle, int sub_angle, int r, unsigned int colour);
@@ -210,6 +211,7 @@ void setup() {
   //
   WiFiManager wm;
   wm.setAPCallback(configModeCallback);
+  wm.setHostname(HOSTNAME);  // name shown in the router's device list
   wm.autoConnect(DEFAULT_CAPTIVE_SSID);
 
   tft.setTextDatum(BC_DATUM);
@@ -245,7 +247,7 @@ void setup() {
 
   // LittleFS.remove(CONFIG_FILE);  // just for testing
   loadConfig();
-  startWebConfig();
+  startWebConfig(HOSTNAME);
 
   // Init touchscreen
   touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
@@ -582,9 +584,12 @@ void drawCurrentWeather() {
 
   String currentSummary = wmoMain(current->id);
 
-  weatherIcon = getMeteoconIcon(current->id, true);
-
-  ui.drawBmp("/icon/" + weatherIcon + ".bmp", 0, 62);
+  if (iconSet == 1) {
+    drawMeteocon(tft, getMeteoconBitmap(current->id, true, false), 0, 62, 100, 100, meteoconPalette);
+  } else {
+    weatherIcon = getMeteoconIcon(current->id, true);
+    ui.drawBmp("/icon/" + weatherIcon + ".bmp", 0, 62);
+  }
 
   // Weather Text
   weatherText = wmoDescription(current->id);
@@ -721,9 +726,12 @@ void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
   handleTempRangeColour(daily->temp_min[dayIndex]);
   tft.drawString(lowTemp, x + 37, y + 14);
 
-  String weatherIcon = getMeteoconIcon(daily->id[dayIndex], false);
-
-  ui.drawBmp("/icon50/" + weatherIcon + ".bmp", x, y + 10);
+  if (iconSet == 1) {
+    drawMeteocon(tft, getMeteoconBitmap(daily->id[dayIndex], false, true), x, y + 10, 50, 50, meteoconPalette);
+  } else {
+    String weatherIcon = getMeteoconIcon(daily->id[dayIndex], false);
+    ui.drawBmp("/icon50/" + weatherIcon + ".bmp", x, y + 10);
+  }
 
   if (showPrecipProbability) {
     precipProbability = daily->pop[dayIndex] * 100;
@@ -918,7 +926,7 @@ void handlePrecipRange(uint16_t theVal) {
 **                Matches icon filenames in /icon/ and /icon50/ folders
 ***************************************************************************************/
 const char *getMeteoconIcon(uint16_t id, bool today) {
-  bool isNight = today && (current->dt < current->sunrise || current->dt > current->sunset);
+  bool isNight = today && !current->is_day;
 
   if (id == 0) return isNight ? "clear_night" : "sunny";
   if (id == 1) return isNight ? "mostly_clear_night" : "mostly_sunny";
@@ -946,6 +954,42 @@ const char *getMeteoconIcon(uint16_t id, bool today) {
 
   return "unknown";
 }
+
+/***************************************************************************************
+**                Get the Meteocons bitmap for a WMO weather code
+**                mini = true for the 50px forecast set, false for the 100px set
+***************************************************************************************/
+#define MC(name) (mini ? mc_mini_##name : mc_##name)
+
+const uint8_t *getMeteoconBitmap(uint16_t id, bool today, bool mini) {
+  bool isNight = today && !current->is_day;
+
+  if (id == 0) return isNight ? MC(clearnight) : MC(sunny);
+  if (id == 1) return isNight ? MC(mostlyclearnight) : MC(mostlysunny);
+  if (id == 2) return isNight ? MC(partlycloudynight) : MC(partlycloudy);
+  if (id == 3) return MC(cloudy);
+  if (id == 45) return MC(fog);
+  if (id == 48) return MC(hazy);                         // depositing rime fog
+  if (id == 51 || id == 53) return MC(chancerain);      // light / moderate drizzle
+  if (id == 55) return MC(rain);                        // dense drizzle
+  if (id == 56 || id == 57) return MC(chancesleet);     // freezing drizzle
+  if (id == 61) return MC(chancerain);
+  if (id == 63 || id == 65) return MC(rain);
+  if (id == 66 || id == 67) return MC(sleet);           // freezing rain
+  if (id == 71) return MC(flurries);
+  if (id == 73 || id == 75) return MC(snow);
+  if (id == 77) return MC(chanceflurries);              // snow grains
+  if (id == 80) return MC(chancerain);
+  if (id == 81 || id == 82) return MC(rain);
+  if (id == 85) return MC(chancesnow);
+  if (id == 86) return MC(snow);
+  if (id == 95) return MC(chancestorms);
+  if (id == 96 || id == 99) return MC(tstorms);         // thunderstorm with hail
+
+  return MC(unknown);
+}
+
+#undef MC
 
 /***************************************************************************************
 **                          Draw screen section separator line
@@ -1365,7 +1409,7 @@ Added function to see 7 day forecast, tap the weekly row to see more, tap to get
 Added dual location support with automatic timezone offset via timeapi.io
 Timezone offsets self-correct at 2am daily — no hardcoding required
 
-New in v1.5.0:
+New in v1.5.8:
 Dual location support — tap the today big weather icon to toggle between TZ1 and TZ2
 Automatic timezone detection via timeapi.io
 Self-correcting timezone at 2am daily for both locations

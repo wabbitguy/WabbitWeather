@@ -28,6 +28,10 @@
 //#define LANG_PT   // Portuguese
 //#define LANG_TR   // Turkish
 
+// WebConfig.cpp includes this file with SETTINGS_LANGUAGE_ONLY defined, so the
+// web page uses the language above without redefining the settings below.
+#ifndef SETTINGS_LANGUAGE_ONLY
+
 /***************************************************************************************
 **                          Timing
 ***************************************************************************************/
@@ -38,6 +42,9 @@
 // Open-Meteo call volume and exposure to their outages vs. the old 15min.
 const int UPDATE_INTERVAL_SECS = 30 * 60UL;
 
+// Running more than one station? Give each its own HOSTNAME, e.g. "WabbitWeather2".
+// It sets the web address (wabbitweather2.local), the router device name and
+// the splash screen title. Use letters, digits and hyphens only.
 #define HOSTNAME           "WabbitWeather"
 #define DEFAULT_CAPTIVE_SSID "WabbitWeather"
 
@@ -90,6 +97,22 @@ bool showUVindex          = true;   // show UV index bar
 bool show6hrForecast      = true;   // rotate 6hr forecast in lower panel
 bool forecastStartToday   = false;  // false = forecast from tomorrow, true = from today
 
+// Weather icon set: 0 = Standard (BMPs in /icon and /icon50 on LittleFS)
+//                   1 = Meteocons (built into the firmware, see MeteoconIcons.h)
+uint8_t iconSet = 0;
+
+/***************************************************************************************
+**                          Meteocons icon colours
+**                          Only used when iconSet = 1
+***************************************************************************************/
+
+uint16_t meteoconPalette[4] = {
+  TFT_BLACK,   // 0 background
+  TFT_WHITE,   // 1 cloud outlines and moon
+  TFT_YELLOW,  // 2 sun
+  0x7E3C       // 3 rain, snow and cloud edges (light blue)
+};
+
 /***************************************************************************************
 **                          Backlight
 ***************************************************************************************/
@@ -126,3 +149,5 @@ uint32_t labelColour     = TFT_WHITE;   // weather panel headings
 uint32_t astrologyColour = TFT_YELLOW;  // astronomy panel headings
 
 // End of settings
+
+#endif  // SETTINGS_LANGUAGE_ONLY

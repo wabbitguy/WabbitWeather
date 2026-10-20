@@ -1,7 +1,8 @@
 // WebConfig.cpp — WabbitWeather web configuration portal
 // All globals (units, latitude, etc.) are visible because Arduino
 // compiles all .ino/.cpp files in the sketch folder together.
-// Do NOT include All_Settings.h here — it would cause duplicate definitions.
+// All_Settings.h is included with SETTINGS_LANGUAGE_ONLY defined, which pulls
+// in just the language selection; the full file would cause duplicate definitions.
 
 #include <WebServer.h>
 #include <ESPmDNS.h>
@@ -9,11 +10,16 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include "WebConfig.h"
-#include "Language.h"
+#define SETTINGS_LANGUAGE_ONLY  // language selection only — see All_Settings.h
+#include "All_Settings.h"
 #include "Translation.h"
 
 // ── Web server instance ────────────────────────────────────────────────────
 static WebServer server(80);
+
+// mDNS name, built from HOSTNAME in startWebConfig() — e.g. "wabbitweather"
+// so the page is at http://wabbitweather.local
+static String mdnsName = "wabbitweather";
 
 // ── Forward declarations of globals from All_Settings.h ───────────────────
 extern String units;
@@ -30,6 +36,7 @@ extern bool showPrecipProbability;
 extern bool showUVindex;
 extern bool show6hrForecast;
 extern bool forecastStartToday;
+extern uint8_t iconSet;
 extern uint8_t highTempVal;
 extern int8_t lowTempVal;
 extern uint32_t highTempColour;
@@ -90,6 +97,7 @@ void loadConfig() {
     else if (key == "showUVindex") showUVindex = (value == "true");
     else if (key == "show6hrForecast") show6hrForecast = (value == "true");
     else if (key == "forecastStartToday") forecastStartToday = (value == "true");
+    else if (key == "iconSet") iconSet = value.toInt();
     else if (key == "highTempVal") highTempVal = value.toInt();
     else if (key == "lowTempVal") lowTempVal = value.toInt();
     else if (key == "highTempColour") highTempColour = colourFromName(value);
@@ -115,7 +123,7 @@ void saveConfig() {
     return;
   }
 
-  f.println("# WabbitWeather configuration — edit via http://wabbitweather.local");
+  f.println("# WabbitWeather configuration — edit via the web page");
   f.println("units=" + units);
   f.println("latitude=" + latitude);
   f.println("longitude=" + longitude);
@@ -130,6 +138,7 @@ void saveConfig() {
   f.println("showUVindex=" + String(showUVindex ? "true" : "false"));
   f.println("show6hrForecast=" + String(show6hrForecast ? "true" : "false"));
   f.println("forecastStartToday=" + String(forecastStartToday ? "true" : "false"));
+  f.println("iconSet=" + String(iconSet));
   f.println("highTempVal=" + String(highTempVal));
   f.println("lowTempVal=" + String(lowTempVal));
   f.println("highTempColour=" + String(nameFromColour(highTempColour)));
@@ -336,7 +345,7 @@ static String buildPage(bool saved = false) {
 
   // ── Header ─────────────────────────────────────────────────────────────────
   html += "<header><div><h1>&#9928; " + String(wcTitle) + "</h1>"
-          "<div class='ip'>" + ip + " &nbsp;|&nbsp; wabbitweather.local</div></div>"
+          "<div class='ip'>" + ip + " &nbsp;|&nbsp; " + mdnsName + ".local</div></div>"
           "<button class='wreset' onclick='document.getElementById(\"wm\").classList.add(\"open\")'>"
           + String(wcWifiResetBtn) + "</button></header>";
 
@@ -418,6 +427,11 @@ static String buildPage(bool saved = false) {
           "<div class='rg'>"
           "<label><input type='radio' name='forecastStartToday' value='0'" + String(!forecastStartToday ? " checked" : "") + "> " + String(wcForecastTomorrow) + "</label>"
           "<label><input type='radio' name='forecastStartToday' value='1'" + String( forecastStartToday ? " checked" : "") + "> " + String(wcForecastToday)    + "</label>"
+          "</div></div>";
+  html += "<div class='row'><label>" + String(wcIconSet) + "</label>"
+          "<div class='rg'>"
+          "<label><input type='radio' name='iconSet' value='0'" + String(iconSet != 1 ? " checked" : "") + "> " + String(wcIconStandard)  + "</label>"
+          "<label><input type='radio' name='iconSet' value='1'" + String(iconSet == 1 ? " checked" : "") + "> " + String(wcIconMeteocons) + "</label>"
           "</div></div>";
   html += "<div class='row'><label>" + String(wcWeatherHeadings) + "</label>" + colourSelect("labelColour",     labelColour)     + "</div>";
   html += "<div class='row'><label>" + String(wcAstroHeadings)   + "</label>" + colourSelect("astrologyColour", astrologyColour) + "</div>";
@@ -598,6 +612,7 @@ static void handleSave() {
   showUVindex = server.hasArg("showUVindex");
   show6hrForecast = server.hasArg("show6hrForecast");
   forecastStartToday = server.hasArg("forecastStartToday") && server.arg("forecastStartToday") == "1";
+  if (server.hasArg("iconSet")) iconSet = server.arg("iconSet") == "1" ? 1 : 0;
 
   if (server.hasArg("highTempVal")) highTempVal = server.arg("highTempVal").toInt();
   if (server.hasArg("lowTempVal")) lowTempVal = server.arg("lowTempVal").toInt();
@@ -641,9 +656,17 @@ static void handleNotFound() {
 // Public functions
 // ===========================================================================
 
-void startWebConfig() {
-  if (MDNS.begin("wabbitweather")) {
-    Serial.println("WebConfig: mDNS started — http://wabbitweather.local");
+void startWebConfig(const char* hostName) {
+  // mDNS names are lowercase letters, digits and hyphens — anything else becomes a hyphen
+  mdnsName = "";
+  for (const char* c = hostName; *c; c++) {
+    char ch = tolower(*c);
+    mdnsName += (isalnum(ch) || ch == '-') ? ch : '-';
+  }
+  if (mdnsName.length() == 0) mdnsName = "wabbitweather";
+
+  if (MDNS.begin(mdnsName.c_str())) {
+    Serial.println("WebConfig: mDNS started — http://" + mdnsName + ".local");
   } else {
     Serial.println("WebConfig: mDNS failed — use IP");
   }

@@ -1,5 +1,6 @@
 // WebConfig.h — Wabbitwx web configuration portal
-// Accessible at http://wabbitweather.local or http://<IP> on port 80
+// Accessible at http://<hostname>.local or http://<IP> on port 80, where
+// <hostname> is HOSTNAME from All_Settings.h in lowercase (wabbitweather.local)
 //
 // Requires in your .ino:
 //   #include <WebServer.h>
@@ -8,7 +9,7 @@
 //
 // In setup() at the very end, add:
 //   loadConfig();    // load saved settings (writes defaults if no file exists)
-//   startWebConfig(); // start mDNS + web server
+//   startWebConfig(HOSTNAME); // start mDNS + web server
 //
 // In loop() add:
 //   handleWebConfig(); // must be called every loop iteration
@@ -77,5 +78,5 @@ inline const char* nameFromColour(uint32_t value) {
 // ── Public API ─────────────────────────────────────────────────────────────
 void loadConfig();        // reads /config.txt, writes defaults if missing
 void saveConfig();        // writes current globals to /config.txt
-void startWebConfig();    // call once at end of setup()
+void startWebConfig(const char* hostName);  // call once at end of setup()
 void handleWebConfig();   // call every loop()
