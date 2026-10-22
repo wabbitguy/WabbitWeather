@@ -16,8 +16,9 @@
 //
 // When the user hits "Update & Save" the globals in All_Settings.h are updated
 // immediately and saved to /config.txt on LittleFS.
-// Check the configUpdated flag in loop() to trigger a display refresh:
-//   if (configUpdated) { configUpdated = false; updateData(); }
+// Check the configUpdated flag in loop() to trigger a display refresh, and
+// configChanges (CFG_* bits below) for what actually changed:
+//   if (configUpdated) { configUpdated = false; applyConfigChanges(configChanges); configChanges = 0; }
 
 #pragma once
 
@@ -27,6 +28,11 @@
 // ── Flag set by web handler when user saves settings ──────────────────────
 // Declare in your .ino globals: volatile bool configUpdated = false;
 // WebConfig.cpp will set it to true when the user hits Update & Save.
+// Also declare: uint8_t configChanges = 0; — Save ORs these bits in
+// so the sketch only re-fetches what the changes actually need.
+#define CFG_LOC1_MOVED    0x01  // location 1 lat/lon changed → new city name (+ weather if on screen)
+#define CFG_LOC2_MOVED    0x02  // location 2 lat/lon changed → same, for location 2
+#define CFG_UNITS_CHANGED 0x04  // imperial ↔ metric → convert what's in memory
 
 // ── TFT colour lookup table ────────────────────────────────────────────────
 struct TFTColour {

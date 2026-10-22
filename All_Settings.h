@@ -2,7 +2,7 @@
 //  to view.
 
 //            >>>       IMPORTANT TO PREVENT CRASHES      <<<
-//>>>>>>  Set SPIFFS to at least 1.5Mbytes before uploading files  <<<<<<
+//>>>>>>  Set SPIFFS to at least 2Mbytes before uploading files  <<<<<<
 
 //                >>>           DON'T FORGET THIS             <<<
 //  Upload the fonts and icons to SPIFFS using the "Tools"  "ESP32 Sketch Data Upload"
@@ -92,6 +92,7 @@ String theCityLocation2 = "Unknown";
 bool show24Hour           = false;  // false = 12hr, true = 24hr clock
 bool autoDimDusk          = true;   // dim display between sunset and sunrise
 bool showBarometric       = false;  // show barometric pressure
+bool pressureSeaLevel     = true;   // true = sea level (as weather reports), false = station (actual at your elevation)
 bool showPrecipProbability = true;  // show precip probability in forecast
 bool showUVindex          = true;   // show UV index bar
 bool show6hrForecast      = true;   // rotate 6hr forecast in lower panel
@@ -125,8 +126,8 @@ uint8_t blDusk = 30;  // backlight brightness at night (0 = off, 255 = full)
 **                          Metric equivalents: ~29C, ~4C
 ***************************************************************************************/
 
-uint8_t  highTempVal    = 85;
-uint8_t  lowTempVal     = 40;
+int16_t  highTempVal    = 85;  // signed — Celsius thresholds go below zero
+int16_t  lowTempVal     = 40;
 uint32_t highTempColour = TFT_RED;
 uint32_t midTempColour  = TFT_GREEN;
 uint32_t lowTempColour  = TFT_BLUE;

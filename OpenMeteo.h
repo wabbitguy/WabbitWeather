@@ -34,7 +34,8 @@ typedef struct OW_current {
   uint8_t  is_day = 1;
   float    temp = 0;
   float    feels_like = 0;
-  float    pressure = 0;
+  float    pressure = 0;      // surface (station) pressure, hPa
+  float    pressure_msl = 0;  // reduced to sea level, hPa
   uint8_t  humidity = 0;
   float    dew_point = 0;
   uint8_t  clouds = 0;

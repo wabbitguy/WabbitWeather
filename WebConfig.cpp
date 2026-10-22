@@ -32,13 +32,14 @@ extern int32_t tzOffset2;
 extern bool show24Hour;
 extern bool autoDimDusk;
 extern bool showBarometric;
+extern bool pressureSeaLevel;
 extern bool showPrecipProbability;
 extern bool showUVindex;
 extern bool show6hrForecast;
 extern bool forecastStartToday;
 extern uint8_t iconSet;
-extern uint8_t highTempVal;
-extern int8_t lowTempVal;
+extern int16_t highTempVal;
+extern int16_t lowTempVal;
 extern uint32_t highTempColour;
 extern uint32_t midTempColour;
 extern uint32_t lowTempColour;
@@ -51,6 +52,7 @@ extern uint32_t labelColour;
 extern uint32_t astrologyColour;
 extern uint8_t blDusk;
 extern volatile bool configUpdated;
+extern uint8_t configChanges;
 
 // ── fetchTZOffset declared in NTP_Time.h ──────────────────────────────────
 extern int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffset);
@@ -93,6 +95,7 @@ void loadConfig() {
     else if (key == "show24Hour") show24Hour = (value == "true");
     else if (key == "autoDimDusk") autoDimDusk = (value == "true");
     else if (key == "showBarometric") showBarometric = (value == "true");
+    else if (key == "pressureSeaLevel") pressureSeaLevel = (value == "true");
     else if (key == "showPrecipProbability") showPrecipProbability = (value == "true");
     else if (key == "showUVindex") showUVindex = (value == "true");
     else if (key == "show6hrForecast") show6hrForecast = (value == "true");
@@ -134,6 +137,7 @@ void saveConfig() {
   f.println("show24Hour=" + String(show24Hour ? "true" : "false"));
   f.println("autoDimDusk=" + String(autoDimDusk ? "true" : "false"));
   f.println("showBarometric=" + String(showBarometric ? "true" : "false"));
+  f.println("pressureSeaLevel=" + String(pressureSeaLevel ? "true" : "false"));
   f.println("showPrecipProbability=" + String(showPrecipProbability ? "true" : "false"));
   f.println("showUVindex=" + String(showUVindex ? "true" : "false"));
   f.println("show6hrForecast=" + String(show6hrForecast ? "true" : "false"));
@@ -420,6 +424,11 @@ static String buildPage(bool saved = false) {
           "<div style='font-size:11px;color:var(--muted);margin-top:4px'>" + String(wcNightBrightHint) + "</div>"
           "</div></div>";
   html += "<div class='row'>" + toggle("showBarometric",        showBarometric,        wcShowBaro)   + "</div>";
+  html += "<div class='row'><label>" + String(wcPressure) + "</label>"
+          "<div class='rg'>"
+          "<label><input type='radio' name='pressureSeaLevel' value='1'" + String( pressureSeaLevel ? " checked" : "") + "> " + String(wcPressSeaLevel) + "</label>"
+          "<label><input type='radio' name='pressureSeaLevel' value='0'" + String(!pressureSeaLevel ? " checked" : "") + "> " + String(wcPressStation)  + "</label>"
+          "</div></div>";
   html += "<div class='row'>" + toggle("showPrecipProbability", showPrecipProbability, wcShowPrecip) + "</div>";
   html += "<div class='row'>" + toggle("showUVindex",           showUVindex,           wcShowUV)     + "</div>";
   html += "<div class='row'>" + toggle("show6hrForecast",       show6hrForecast,       wcShow6Hr)    + "</div>";
@@ -441,9 +450,9 @@ static String buildPage(bool saved = false) {
   html += section(wcSecTempColours);
   html += "<div class='card'>";
   html += "<div class='row'><label>" + String(wcHighTempThresh) + "</label>"
-          "<input type='number' name='highTempVal' value='" + String(highTempVal) + "' min='-50' max='150' style='max-width:90px'></div>";
+          "<input type='number' name='highTempVal' value='" + String(highTempVal) + "' min='-99' max='199' style='max-width:90px'></div>";
   html += "<div class='row'><label>" + String(wcLowTempThresh) + "</label>"
-          "<input type='number' name='lowTempVal'  value='" + String(lowTempVal)  + "' min='-50' max='150' style='max-width:90px'></div>";
+          "<input type='number' name='lowTempVal'  value='" + String(lowTempVal)  + "' min='-99' max='199' style='max-width:90px'></div>";
   html += "<div class='row'><label>" + String(wcHighTempColour) + "</label>" + colourSelect("highTempColour", highTempColour) + "</div>";
   html += "<div class='row'><label>" + String(wcMidTempColour)  + "</label>" + colourSelect("midTempColour",  midTempColour)  + "</div>";
   html += "<div class='row'><label>" + String(wcLowTempColour)  + "</label>" + colourSelect("lowTempColour",  lowTempColour)  + "</div>";
@@ -583,6 +592,29 @@ static String buildPage(bool saved = false) {
           "x.classList.remove('open');});}});"
           "</script>";
 
+  // ── Temp thresholds follow the units switch ────────────────────────────────
+  // Own <script> so it still works if the map script above fails (no Leaflet).
+  // Each box converts from its last typed (or loaded) value and that value's
+  // units, never from the previous conversion, so flipping °F/°C back and
+  // forth can't drift (71F → 22C → 72F) and a hand-typed value still converts.
+  html += "<script>"
+          "(function(){"
+          "function cu(){return document.querySelector('input[name=units]:checked').value;}"
+          "var base={};"
+          "['highTempVal','lowTempVal'].forEach(function(n){"
+          "var el=document.querySelector('input[name='+n+']');"
+          "base[n]={v:+el.value,u:cu()};"
+          "el.addEventListener('input',function(){base[n]={v:+el.value,u:cu()};});});"
+          "document.querySelectorAll('input[name=units]').forEach(function(r){"
+          "r.addEventListener('change',function(){"
+          "var u=cu();"
+          "Object.keys(base).forEach(function(n){"
+          "var b=base[n],v=b.v;"
+          "if(b.u!==u)v=(u==='metric')?(v-32)*5/9:v*9/5+32;"
+          "document.querySelector('input[name='+n+']').value=Math.round(v);});});});"
+          "})();"
+          "</script>";
+
   html += "</main></body></html>";
   return html;
 }
@@ -596,7 +628,21 @@ static void handleRoot() {
   server.send(200, "text/html", buildPage(saved));
 }
 
+// True if the submitted coordinate differs from the stored one. Compared as
+// numbers so "49.1" and "49.10" match; the page sends 4 decimals (~11 m), so
+// anything under half a step is the same spot.
+static bool coordMoved(const String& oldVal, const char* argName) {
+  if (!server.hasArg(argName)) return false;
+  return fabs(server.arg(argName).toDouble() - oldVal.toDouble()) > 0.00005;
+}
+
 static void handleSave() {
+  // Work out what changed before anything is overwritten
+  uint8_t changes = 0;
+  if (coordMoved(latitude, "latitude") || coordMoved(longitude, "longitude")) changes |= CFG_LOC1_MOVED;
+  if (coordMoved(latitude2, "latitude2") || coordMoved(longitude2, "longitude2")) changes |= CFG_LOC2_MOVED;
+  if (server.hasArg("units") && server.arg("units") != units) changes |= CFG_UNITS_CHANGED;
+
   if (server.hasArg("units")) units = server.arg("units");
   if (server.hasArg("latitude")) latitude = server.arg("latitude");
   if (server.hasArg("longitude")) longitude = server.arg("longitude");
@@ -613,6 +659,7 @@ static void handleSave() {
   show6hrForecast = server.hasArg("show6hrForecast");
   forecastStartToday = server.hasArg("forecastStartToday") && server.arg("forecastStartToday") == "1";
   if (server.hasArg("iconSet")) iconSet = server.arg("iconSet") == "1" ? 1 : 0;
+  if (server.hasArg("pressureSeaLevel")) pressureSeaLevel = server.arg("pressureSeaLevel") == "1";  // display only — both are always fetched
 
   if (server.hasArg("highTempVal")) highTempVal = server.arg("highTempVal").toInt();
   if (server.hasArg("lowTempVal")) lowTempVal = server.arg("lowTempVal").toInt();
@@ -629,6 +676,7 @@ static void handleSave() {
   if (server.hasArg("blDusk")) blDusk = server.arg("blDusk").toInt();
 
   saveConfig();
+  configChanges |= changes;
   configUpdated = true;
 
   server.sendHeader("Location", "/?saved=1");

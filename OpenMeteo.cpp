@@ -85,11 +85,11 @@ bool OW_Weather::getForecast(OW_current *current, OW_hourly *hourly, OW_daily *d
   // it's unclear if anything still calls partialDataSet(true).
   if (current) {
     if (!partialSet) {
-      currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,"
+      currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,pressure_msl,"
                       "cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,"
                       "weather_code,is_day";
     } else {
-      currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,"
+      currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,pressure_msl,"
                       "cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,"
                       "weather_code,is_day";
     }
@@ -443,6 +443,7 @@ void OW_Weather::fullDataSet(const char *val) {
     else if (currentKey == "apparent_temperature") current->feels_like = value.toFloat();
     else if (currentKey == "relative_humidity_2m") current->humidity = value.toInt();
     else if (currentKey == "surface_pressure") current->pressure = value.toFloat();
+    else if (currentKey == "pressure_msl") current->pressure_msl = value.toFloat();
     else if (currentKey == "dew_point_2m") current->dew_point = value.toFloat();
     else if (currentKey == "uv_index") current->uvi = value.toFloat();
     else if (currentKey == "cloud_cover") current->clouds = value.toInt();
@@ -559,6 +560,7 @@ void OW_Weather::partialDataSet(const char *val) {
     else if (currentKey == "temperature_2m") current->temp = value.toFloat();
     else if (currentKey == "relative_humidity_2m") current->humidity = value.toInt();
     else if (currentKey == "surface_pressure") current->pressure = value.toFloat();
+    else if (currentKey == "pressure_msl") current->pressure_msl = value.toFloat();
     else if (currentKey == "cloud_cover") current->clouds = value.toInt();
     else if (currentKey == "wind_speed_10m") current->wind_speed = value.toFloat();
     else if (currentKey == "wind_direction_10m") current->wind_deg = (uint16_t)value.toInt();

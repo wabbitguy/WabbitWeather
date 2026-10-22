@@ -87,6 +87,8 @@ const char pressMetric[] = " hPa";
 // Was: "oC" / "oF" inline in drawCurrentWeather()
 const char tempMetric[] = "oC";
 const char tempImperial[] = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 // ── 6hr forecast panel ───────────────────────────────────────────────────────
 // Was: "6Hr Forecast" / "Pop%:" / "Temp:" / " Dew:" in handleHourlyFrame()
@@ -157,6 +159,9 @@ const char wcForecastTomorrow[] = "Tomorrow";
 const char wcIconSet[]         = "Weather icons";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Pressure";
+const char wcPressSeaLevel[]   = "Sea level";
+const char wcPressStation[]    = "Station";
 const char wcWeatherHeadings[] = "Weather Headings";
 const char wcAstroHeadings[] = "Astrology Headings";
 
@@ -263,6 +268,8 @@ const char pressImperial[] = " in";
 const char pressMetric[] = " hPa";
 const char tempMetric[] = "oC";
 const char tempImperial[] = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 const char forecastTitleStr[] = "Previsions 6h";
 const char popLabelStr[] = "Prec%:";
@@ -314,6 +321,9 @@ const char wcForecastTomorrow[] = "Demain";
 const char wcIconSet[]         = "Icones meteo";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Pression";
+const char wcPressSeaLevel[]   = "Niveau de la mer";
+const char wcPressStation[]    = "Station";
 const char wcWeatherHeadings[] = "Couleur titres meteo";
 const char wcAstroHeadings[] = "Couleur titres astronomie";
 const char wcHighTempThresh[] = "Seuil temperature haute (&deg;)";
@@ -411,6 +421,8 @@ const char pressImperial[] = " in";
 const char pressMetric[] = " hPa";
 const char tempMetric[] = "oC";
 const char tempImperial[] = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 const char forecastTitleStr[] = "6-Std-Vorhersage";
 const char popLabelStr[] = "Nied%:";
@@ -462,6 +474,9 @@ const char wcForecastTomorrow[] = "Morgen";
 const char wcIconSet[]         = "Wettersymbole";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Luftdruck";
+const char wcPressSeaLevel[]   = "Meeresniveau";
+const char wcPressStation[]    = "Standort";
 const char wcWeatherHeadings[] = "Farbe Wetter-Titel";
 const char wcAstroHeadings[] = "Farbe Astronomie-Titel";
 const char wcHighTempThresh[] = "Hohe Temp-Schwelle (&deg;)";
@@ -558,6 +573,8 @@ const char pressImperial[] = " in";
 const char pressMetric[] = " hPa";
 const char tempMetric[] = "oC";
 const char tempImperial[] = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 const char forecastTitleStr[] = "Pronostico 6h";
 const char popLabelStr[] = "Prec%:";
@@ -609,6 +626,9 @@ const char wcForecastTomorrow[] = "Manana";
 const char wcIconSet[]         = "Iconos del tiempo";
 const char wcIconStandard[]    = "Estandar";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Presion";
+const char wcPressSeaLevel[]   = "Nivel del mar";
+const char wcPressStation[]    = "Estacion";
 const char wcWeatherHeadings[] = "Color titulos meteo";
 const char wcAstroHeadings[] = "Color titulos astronomia";
 const char wcHighTempThresh[] = "Umbral temperatura alta (&deg;)";
@@ -706,6 +726,8 @@ const char pressImperial[] = " in";
 const char pressMetric[] = " hPa";
 const char tempMetric[] = "oC";
 const char tempImperial[] = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 const char forecastTitleStr[] = "Voorspelling 6u";
 const char popLabelStr[] = "Neer%:";
@@ -757,6 +779,9 @@ const char wcForecastTomorrow[] = "Morgen";
 const char wcIconSet[]         = "Weericonen";
 const char wcIconStandard[]    = "Standaard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Luchtdruk";
+const char wcPressSeaLevel[]   = "Zeeniveau";
+const char wcPressStation[]    = "Station";
 const char wcWeatherHeadings[] = "Kleur weertitels";
 const char wcAstroHeadings[] = "Kleur astronomietitels";
 const char wcHighTempThresh[] = "Hoge temp-drempel (&deg;)";
@@ -849,6 +874,8 @@ const char pressImperial[] = " in";
 const char pressMetric[]   = " hPa";
 const char tempMetric[]    = "oC";
 const char tempImperial[]  = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 static const char* shortMonth[12] = {
   "Jan","Fev","Mar","Abr","Mai","Jun",
@@ -904,6 +931,9 @@ const char wcForecastTomorrow[] = "Amanha";
 const char wcIconSet[]         = "Icones do tempo";
 const char wcIconStandard[]    = "Padrao";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Pressao";
+const char wcPressSeaLevel[]   = "Nivel do mar";
+const char wcPressStation[]    = "Estacao";
 const char wcWeatherHeadings[]  = "Cor titulos meteorologia";
 const char wcAstroHeadings[]    = "Cor titulos astronomia";
 const char wcHighTempThresh[]   = "Limite temp alta (&deg;)";
@@ -997,6 +1027,8 @@ const char pressImperial[] = " in";
 const char pressMetric[]   = " hPa";
 const char tempMetric[]    = "oC";
 const char tempImperial[]  = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
 
 static const char* shortMonth[12] = {
   "Oca","Sub","Mar","Nis","May","Haz",
@@ -1052,6 +1084,9 @@ const char wcForecastTomorrow[] = "Yarin";
 const char wcIconSet[]         = "Hava durumu simgeleri";
 const char wcIconStandard[]    = "Standart";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcPressure[]        = "Basinc";
+const char wcPressSeaLevel[]   = "Deniz seviyesi";
+const char wcPressStation[]    = "Istasyon";
 const char wcWeatherHeadings[]  = "Hava durumu baslik rengi";
 const char wcAstroHeadings[]    = "Astronomi baslik rengi";
 const char wcHighTempThresh[]   = "Yuksek sicaklik esigi (&deg;)";
