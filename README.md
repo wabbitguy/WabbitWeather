@@ -2,12 +2,11 @@
 
 A weather display for the ESP32 CYD (Cheap Yellow Display) using [Open-Meteo](https://open-meteo.com) for weather data and [Nominatim](https://nominatim.org) for location lookup. No API keys or subscriptions required.
 
-<img width="285" height="480" alt="IMG_8050" src="https://github.com/user-attachments/assets/2c43670e-5614-47df-a0f6-49a67f651d69" />
+<img width="360" height="558" alt="Splash" src="https://github.com/user-attachments/assets/490a29e4-68ee-4f7f-9cf9-07290c2f26a3" />
 
 Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyWeather), significantly extended and adapted by WabbitGuy.
 
 ---
-
 ## Hardware
 
 - **ESP32 CYD** (Cheap Yellow Display) — 2.8" 240×320 TFT with XPT2046 touchscreen
@@ -32,6 +31,7 @@ Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyW
 - Map-based location selection with search box (type "London UK" to jump there)
 - Multilingual: English, French, German, Spanish, Dutch, Portuguese, Turkish
 - Temperature and precipitation threshold colours — fully user configurable
+- Barometric pressure selectable sea level or current elevation
 - WiFi management via WiFiManager captive portal
 
 ---
@@ -67,7 +67,7 @@ TZ1 is your primary location. TZ2 is an alternate location (family in another ci
 
 ### Display Settings
 
-<img width="640" height="545" alt="DisplaySettings" src="https://github.com/user-attachments/assets/32ed824d-8d4b-49bb-af27-27d582a2343a" />
+<img width="640" height="583" alt="Display_Settings" src="https://github.com/user-attachments/assets/dd57c5b8-7393-4dab-b0e4-a4730a541b99" />
 
 - Imperial (°F) or Metric (°C)
 - 12 or 24 hour clock
@@ -75,6 +75,7 @@ TZ1 is your primary location. TZ2 is an alternate location (family in another ci
 - Night brightness (0 = display off, 255 = full brightness)
 - Show/hide barometric pressure, precipitation probability, UV index, 6hr forecast
 - Forecast start: Today or Tomorrow
+- Weather icon set
 - Weather and astrology heading colours
 
 ### Temperature Threshold Colours
@@ -191,6 +192,16 @@ Install the separate upload tool:
 ---
 
 ## Version History
+
+###1.7.0
+- Weather cached per location unless outside the 30 minute refresh, then it's updated
+- To force a weather update, touch the large weather icon for 2 seconds. Progress ring top left shows.
+- Updated/Saved via web browser settings only refreshes weather if location is changed
+- Failed downloads of weather show last good data instead of blank screen
+- City names are cached to remove constant checks with Nominatim lookups (fast screen updates)
+- AM/PM shown in 12Hr clock display
+- Screen optimized for UV and WIFI bars, plus 6hr display area
+- Pressure can be sea level or station (your elevation). Web browser settings
 
 ###1.6.0
 - Added optional weather icons from the original ThingPulse project
