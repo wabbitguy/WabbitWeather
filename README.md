@@ -17,7 +17,7 @@ Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyW
 
 ## Features
 
-- Live weather from [Open-Meteo](https://open-meteo.com) — updates every 15 minutes, no subscription, no API key
+- Live weather from [Open-Meteo](https://open-meteo.com) — updates every 30 minutes, no subscription, no API key
 - Location lookup via [Nominatim](https://nominatim.org) — city name displayed automatically from coordinates
 - 8-day forecast with tap-to-page (days 1–4 or days 5–8), with option to start from today
 - 6-hour rotating forecast showing precipitation probability, temperature and dew point
