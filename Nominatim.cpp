@@ -13,13 +13,7 @@ static const char *NOM_HOST = "nominatim.openstreetmap.org";
 // Identify your app in the User-Agent as required by Nominatim's usage policy
 static const char *NOM_USER_AGENT = "ESP32-WeatherDisplay/1.0";
 
-/***************************************************************************************
-** Function name:           getBDCLocation
-** Description:             Request reverse geocode from Nominatim.
-**                          Signature unchanged so sketch call needs no modification.
-**                          'language' parameter accepted but unused (Nominatim returns
-**                          English names by default for most locations worldwide).
-***************************************************************************************/
+// Reverse geocode lat/lon to a city name, in 'language' (NOMINATIM_LANG) if OpenStreetMap has it
 bool BDC_location::getBDCLocation(BDC_current *BDCcurrent, String latitude, String longitude, String language) {
 
   BDCdata_set = "";
@@ -32,7 +26,7 @@ String url = "https://" + String(NOM_HOST)
            + "&format=json"
            + "&addressdetails=1"
            + "&zoom=12"          // city level instead of neighbourhood
-           + "&accept-language=en";
+           + "&accept-language=" + language + ",en";  // build language, then English, then the local name
 
   bool result = parseBDCRequest(url);
 

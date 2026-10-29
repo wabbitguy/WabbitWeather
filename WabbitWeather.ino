@@ -1421,7 +1421,10 @@ bool lookupCityName(bool alt) {
     if (BDCcurrent->city.isEmpty() && !BDCcurrent->locality.isEmpty())
       BDCcurrent->city = BDCcurrent->locality;
     String cityName = BDCcurrent->city;
-    if (cityName.length() > 26) cityName = "Local Weather";
+    uint16_t letters = 0;
+    for (uint16_t i = 0; i < cityName.length(); i++)
+      if (((uint8_t)cityName[i] & 0xC0) != 0x80) letters++;  // count letters, not UTF-8 bytes
+    if (letters > 26) cityName = strLocalWeather;
     cached = cityName;
   }
   delete BDCcurrent;  // free on failure too, or every failed lookup leaks one struct

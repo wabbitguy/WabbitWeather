@@ -77,6 +77,7 @@ const char bootFlashOK[] = "Flash FS available!";
 const char bootFlashFail[] = "Flash FS initialisation failed!";
 const char bootRetry[] = "Fetch failed, retrying in 60 seconds...";
 const char strAPActive[] = "Access Point Active";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Local Weather";  // city name too long to show
 
 // ── Splash screen credits ─────────────────────────────────────────────────────
 const char creditOriginal[] = "Original by: blog.squix.org";
@@ -250,6 +251,7 @@ const char bootFlashOK[] = "Flash FS prêt!";
 const char bootFlashFail[] = "Erreur Flash FS!";
 const char bootRetry[] = "Échec, nouvel essai dans 60s...";
 const char strAPActive[] = "Point d'accès actif";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Météo locale";  // city name too long to show
 
 const char creditOriginal[] = "Original: blog.squix.org";
 const char creditBodmer[] = "Adapté par: Bodmer";
@@ -403,6 +405,7 @@ const char bootFlashOK[] = "Flash FS bereit!";
 const char bootFlashFail[] = "Flash FS Fehler!";
 const char bootRetry[] = "Fehler, neuer Versuch in 60s...";
 const char strAPActive[] = "Zugangspunkt aktiv";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Lokales Wetter";  // city name too long to show
 
 const char creditOriginal[] = "Original: blog.squix.org";
 const char creditBodmer[] = "Angepasst von: Bodmer";
@@ -555,6 +558,7 @@ const char bootFlashOK[] = "¡Flash FS listo!";
 const char bootFlashFail[] = "¡Error en Flash FS!";
 const char bootRetry[] = "Fallo, reintentando en 60s...";
 const char strAPActive[] = "Punto de acceso activo";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Tiempo local";  // city name too long to show
 
 const char creditOriginal[] = "Original: blog.squix.org";
 const char creditBodmer[] = "Adaptado por: Bodmer";
@@ -708,6 +712,7 @@ const char bootFlashOK[] = "Flash FS gereed!";
 const char bootFlashFail[] = "Flash FS fout!";
 const char bootRetry[] = "Mislukt, opnieuw in 60s...";
 const char strAPActive[] = "Toegangspunt actief";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Lokaal weer";  // city name too long to show
 
 const char creditOriginal[] = "Origineel: blog.squix.org";
 const char creditBodmer[] = "Aangepast door: Bodmer";
@@ -860,6 +865,7 @@ const char bootFlashOK[]            = "Flash FS pronto!";
 const char bootFlashFail[]          = "Erro no Flash FS!";
 const char bootRetry[]              = "Falha, tentando em 60s...";
 const char strAPActive[] = "Ponto de acesso ativo";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Tempo local";  // city name too long to show
 
 const char creditOriginal[]  = "Original: blog.squix.org";
 const char creditBodmer[]    = "Adaptado por: Bodmer";
@@ -1013,6 +1019,7 @@ const char bootFlashOK[]            = "Flash FS hazır!";
 const char bootFlashFail[]          = "Flash FS hatası!";
 const char bootRetry[]              = "Başarısız, 60s sonra tekrar...";
 const char strAPActive[] = "Erişim noktası aktif";  // Wi-Fi setup screen
+const char strLocalWeather[] = "Yerel Hava";  // city name too long to show
 
 const char creditOriginal[]  = "Orijinal: blog.squix.org";
 const char creditBodmer[]    = "Uyarlayan: Bodmer";
