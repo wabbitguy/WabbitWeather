@@ -10,8 +10,8 @@ Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyW
 ## Hardware
 
 - **ESP32 CYD** (Cheap Yellow Display) — 2.8" 240×320 TFT with XPT2046 touchscreen
-- The board used and tested is the **ST7789**-based CYD. Earlier boards used an ILI9341 driver — check the back of your board before ordering.
-- Both CYD Drivers are included in TFT-eSPI_Config folder
+- The boards used and tested with are the **ST7789** and **ILI9341** versions
+- Both CYD Drivers are included in TFT-eSPI_Configs folder
 
 ---
 
@@ -92,13 +92,21 @@ Set high and low precipitation probability thresholds and choose colours for eac
 
 ---
 
-## Partition Scheme
+## 🚀 Quick Install (no Arduino IDE needed)
+### Works with both ST7789 and ILI9341 boards
+
+[**Click here to install WabbitWeather from your browser**](https://wabbitguy.github.io/WabbitWeather-Install/)
+
+Works in Chrome, Edge, Opera, or recent Firefox on desktop. Not supported in Safari. Plug in your CYD over USB, pick your display and language, and click Install. Then carry on from step 4 of First Time Setup below.
+
+---
+## Partition Scheme (Arduino IDE)
 
 WabbitWeather uses a **NO OTA 2MB App / 2MB LittleFS** partition scheme to accommodate the fonts and weather icon set. Select this in the Arduino IDE under Tools → Partition Scheme before flashing.
 
 ---
 
-## First Time Setup
+## First Time Setup (Arduino IDE)
 
 1. Use correct driver from TFT-eSPI_Configs, copy to your TFT_eSPI folder, rename copied driver to User_Setup.h
 2. Make your language selection first in the All_Settings.h file (see section below)
@@ -193,7 +201,15 @@ Install the separate upload tool:
 
 ## Version History
 
-###1.7.0
+### v1.8.0
+- Accented letters on screen and on the web page (French, German, Spanish, Portuguese, Turkish)
+- City names shown in the selected language where OpenStreetMap has them (e.g. München)
+- Wi-Fi setup screen and WiFi Reset button translated
+- One name to set (HOSTNAME) for the hotspot, web address and page title
+- ILI9341 boards fixed (HSPI)
+- Quick Install from the browser, no Arduino IDE needed
+
+### v1.7.0
 - Weather cached per location unless outside the 30 minute refresh, then it's updated
 - To force a weather update, touch the large weather icon for 2 seconds. Progress ring top left shows.
 - Updated/Saved via web browser settings only refreshes weather if location is changed
@@ -203,17 +219,17 @@ Install the separate upload tool:
 - Screen optimized for UV and WIFI bars, plus 6hr display area
 - Pressure can be sea level or station (your elevation). Web browser settings
 
-###1.6.0
+### v1.6.0
 - Added optional weather icons from the original ThingPulse project
 - Added a hostname change in All_Settings.h for multiple stations on same network (slight name changes)
 - Removed unused Language.h file, language settings remain in All_Settings.h
 - More code cleanup done
 
-###1.5.8
+### v1.5.8
 - Nomination's policy requires cached names so you don't over load them when switch locales
 - When looking up the current locale, if it failed (rare) memory wasn't recovered. Fixed.
 
-### V1.5.6
+### v1.5.6
 - Change weather requests to 30 minute intervals
 - Fixed bitmap draw that wasn't using LittleFS properly
 - Changed NTP requests so they don't collide with Open-Meteo requests
