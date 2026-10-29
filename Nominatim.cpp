@@ -1,11 +1,5 @@
-// Reverse geocoding using Nominatim (OpenStreetMap)
-// Replaces BigDataCloud with a completely free, keyless, worldwide service.
-// Usage policy: https://operations.osmfoundation.org/policies/nominatim/
-// - No bulk requests (we only call once at boot — fine)
-// - Requires a descriptive User-Agent header (set below)
-//
-// Streaming JSON parser:
-//   https://github.com/Bodmer/JSON_Decoder
+// City name lookup using Nominatim (OpenStreetMap), free and keyless
+// Usage policy (no bulk requests, real User-Agent): https://operations.osmfoundation.org/policies/nominatim/
 
 #include <WiFiClientSecure.h>  // need an HTTPS connection
 #include <HTTPClient.h>
@@ -31,16 +25,7 @@ bool BDC_location::getBDCLocation(BDC_current *BDCcurrent, String latitude, Stri
   BDCdata_set = "";
   this->BDCcurrent = BDCcurrent;
 
-  // Nominatim reverse geocode endpoint
-  // zoom=14 returns neighbourhood/suburb level detail
-  // addressdetails=1 returns the structured address object we need
-  // String url = "https://" + String(NOM_HOST)
-  //              + "/reverse?lat=" + latitude
-  //              + "&lon=" + longitude
-  //              + "&format=json"
-  //              + "&addressdetails=1"
-  //              + "&zoom=14"
-  //              + "&accept-language=en";
+  // addressdetails=1 = structured address
 String url = "https://" + String(NOM_HOST)
            + "/reverse?lat=" + latitude
            + "&lon=" + longitude
@@ -87,11 +72,7 @@ bool BDC_location::parseBDCRequest(String url) {
   // Nominatim requires a User-Agent header identifying the application
   http.addHeader("User-Agent", NOM_USER_AGENT);
 
-  // Force the connection closed after this response — same reasoning as
-  // the Open-Meteo fetch: the original hand-rolled request always sent
-  // "Connection: close", and leaving it to HTTPClient's default keep-alive
-  // could be leaving a socket lingering into the next fetch cycle.
-  http.addHeader("Connection", "close");
+  http.addHeader("Connection", "close");  // no keep-alive socket left lingering
 
   Serial.println("Sending GET request to nominatim.openstreetmap.org...");
   int httpCode = http.GET();

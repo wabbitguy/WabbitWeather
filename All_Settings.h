@@ -1,25 +1,14 @@
-//  The weather icons and fonts are in the sketch data folder, press Ctrl+K
-//  to view.
-
-//            >>>       IMPORTANT TO PREVENT CRASHES      <<<
-//>>>>>>  Set SPIFFS to at least 2Mbytes before uploading files  <<<<<<
-
-//                >>>           DON'T FORGET THIS             <<<
-//  Upload the fonts and icons to SPIFFS using the "Tools"  "ESP32 Sketch Data Upload"
-//  or "ESP8266 Sketch Data Upload" menu option in the IDE.
-//  To add this option follow instructions here for the ESP8266:
-//  https://github.com/esp8266/arduino-esp8266fs-plugin
-//  To add this option follow instructions here for the ESP32:
-//  https://github.com/me-no-dev/arduino-esp32fs-plugin
-
-//  Close the IDE and open again to see the new menu option.
+// WabbitWeather settings; most can also be changed later on the web page.
+// Partition Scheme: "No OTA (2MB APP/2MB SPIFFS)". Upload the data folder (fonts, icons) to LittleFS.
 
 #pragma once
 
 /***************************************************************************************
 **                          Language selection
 **                          Uncomment ONE of the following:
+**  (The ready-made .bin files on GitHub choose their language when they're built.)
 ***************************************************************************************/
+#ifndef LANG_FROM_BUILD
 #define LANG_EN   // English  (default)
 //#define LANG_FR   // French
 //#define LANG_DE   // German
@@ -27,26 +16,23 @@
 //#define LANG_NL   // Dutch
 //#define LANG_PT   // Portuguese
 //#define LANG_TR   // Turkish
+#endif
 
-// WebConfig.cpp includes this file with SETTINGS_LANGUAGE_ONLY defined, so the
-// web page uses the language above without redefining the settings below.
-#ifndef SETTINGS_LANGUAGE_ONLY
+/***************************************************************************************
+**                          Device name
+**  Used for the Wi-Fi setup hotspot, web address (wabbitweather.local), router device
+**  name, splash screen and web page. Running more than one? Give each its own name,
+**  e.g. "WabbitWeather2". Letters, digits and hyphens only.
+***************************************************************************************/
+#define HOSTNAME "WabbitWeather2"
+
+#ifndef SETTINGS_LANGUAGE_ONLY  // WebConfig.cpp only needs the language and name above
 
 /***************************************************************************************
 **                          Timing
 ***************************************************************************************/
 
-// Update every 30 minutes — conditions don't meaningfully change faster than
-// that, and it's right in line with what most weather apps/widgets use
-// (Apple ~10min, Android widgets floor at 30min by OS policy). Halves our
-// Open-Meteo call volume and exposure to their outages vs. the old 15min.
-const int UPDATE_INTERVAL_SECS = 30 * 60UL;
-
-// Running more than one station? Give each its own HOSTNAME, e.g. "WabbitWeather2".
-// It sets the web address (wabbitweather2.local), the router device name and
-// the splash screen title. Use letters, digits and hyphens only.
-#define HOSTNAME           "WabbitWeather"
-#define DEFAULT_CAPTIVE_SSID "WabbitWeather"
+const int UPDATE_INTERVAL_SECS = 30 * 60UL;  // weather update every 30 minutes
 
 /***************************************************************************************
 **                          sunrise/sunset trigger points for auto-dim
@@ -60,21 +46,17 @@ uint32_t sunrise, sunset;
 // Temperature units: "metric" or "imperial"
 String units = "imperial";
 
-// Default location: Science World, Vancouver BC
-// Users set their own location via the web interface — no need to edit this file.
+// Default location: Science World, Vancouver BC. Set your own on the web page.
 String latitude  = "49.2734";
 String longitude = "-123.1037";
 
-// Timezone offset in seconds east of UTC for the primary location.
-// -25200 = UTC-7 (PDT).  Updated automatically at 2am and on web save.
-int32_t tzOffset = -25200;
+int32_t tzOffset = -25200;  // seconds east of UTC (-25200 = UTC-7); updated at 2am and on Save
 
 /***************************************************************************************
 **                          Alternate location
 ***************************************************************************************/
 
-// Second location — user sets via web interface.
-// Defaults to same as primary so the display shows something sensible on first boot.
+// Second location, set on the web page (starts the same as the first)
 String latitude2  = "49.2734";
 String longitude2 = "-123.1037";
 
@@ -98,9 +80,7 @@ bool showUVindex          = true;   // show UV index bar
 bool show6hrForecast      = true;   // rotate 6hr forecast in lower panel
 bool forecastStartToday   = false;  // false = forecast from tomorrow, true = from today
 
-// Weather icon set: 0 = Standard (BMPs in /icon and /icon50 on LittleFS)
-//                   1 = Meteocons (built into the firmware, see MeteoconIcons.h)
-uint8_t iconSet = 0;
+uint8_t iconSet = 0;  // 0 = Standard (BMPs on LittleFS), 1 = Meteocons (built into the firmware)
 
 /***************************************************************************************
 **                          Meteocons icon colours

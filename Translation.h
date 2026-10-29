@@ -1,27 +1,6 @@
 // =============================================================================
-// Translation.h — WabbitWeather localisation
-// =============================================================================
-//
-//
-// 2. Remove (or comment out) the matching string definitions from All_Settings.h
-//    — shortDOW[], sunStr, cloudStr, humidityStr, moonPhase[] — they live here now.
-//
-// 3. Replace hardcoded strings in WabbitWeather.ino and WebConfig.cpp with the
-//    constant names defined below.  A comment beside each one shows the original
-//    source location so you can find them quickly with Ctrl+F.
-//
-// 4. For the Open-Meteo weather description displayed on screen (current->description
-//    and current->main), use wmoDescription(id) and wmoMain(id) instead.
-//    Open-Meteo returns WMO numeric codes, not text — the English strings you see
-//    come from inside the OpenMeteo parser.  The functions at the bottom of this
-//    file return translated text directly from the WMO code so you stay consistent
-//    regardless of what the parser sets.
-//
-// FONT NOTE
-// ---------
-// The existing NotoSansBold15 / NotoSansBold36 bitmap fonts cover the full
-// Latin-1 Supplement block (U+00C0–U+00FF), so accented characters for French,
-// German, Spanish, and Dutch work without regenerating fonts.
+// Translation.h — all screen and web page text; the language is chosen in All_Settings.h
+// NotoSansBold15 text can use accents (Latin-1 + Turkish); Font 2/4 text must stay plain ASCII.
 // =============================================================================
 
 #ifndef TRANSLATION_H
@@ -41,11 +20,10 @@
 // =============================================================================
 #ifdef LANG_EN
 
-// Open-Meteo language code (passed to Nominatim for place name lookup)
+// Language for the Nominatim place name lookup
 #define NOMINATIM_LANG "en"
 
 // ── Calendar ─────────────────────────────────────────────────────────────────
-// Was: const String shortDOW[8] in All_Settings.h
 static const char* shortDOW[8] = { "???", "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
 
 static const char* shortMonth[12] = {
@@ -56,7 +34,6 @@ static const char* moonPhase[8] = {
   "New", "Waxing", "1st qtr", "Waxing", "Full", "Waning", "Last qtr", "Waning"
 };
 // ── Astronomy panel ───────────────────────────────────────────────────────────
-// Was: const char sunStr[], cloudStr[], humidityStr[] in All_Settings.h
 const char sunStr[] = "Sun";
 const char cloudStr[] = "Cloud";
 const char humidityStr[] = "Humidity";
@@ -66,39 +43,31 @@ const char riseStr[] = "SR:";
 const char setStr[]  = "SS:";
 
 // ── Current weather panel ─────────────────────────────────────────────────────
-// Was: "Updated: " prefix built inline in drawCurrentWeather()
 const char updatedStr[] = "Updated: ";
-// Shown instead of updatedStr when the weather hasn't refreshed successfully
-// in over an hour (see FAILURE_WARNING_SECS) — a visible sign that data is
-// stale without needing to know *why* (Wi-Fi noise, Open-Meteo hiccup, etc.)
+// Replaces updatedStr when the weather hasn't refreshed for an hour (FAILURE_WARNING_SECS)
 const char failedStr[] = "Failed: ";
 
-// Wind speed units — appended to the wind speed value
-// Was: " m/s" / " mph" inline in drawCurrentWeather()
+// Wind speed units
 const char windMetric[] = " m/s";
 const char windImperial[] = " mph";
 
 // Pressure units
-// Was: " in" / " hPa" inline in drawCurrentWeather()
 const char pressImperial[] = " in";
 const char pressMetric[] = " hPa";
 
 // Temperature unit symbol (small font uses 'o' not the degree glyph)
-// Was: "oC" / "oF" inline in drawCurrentWeather()
 const char tempMetric[] = "oC";
 const char tempImperial[] = "oF";
 const char amStr[] = "AM";
 const char pmStr[] = "PM";
 
 // ── 6hr forecast panel ───────────────────────────────────────────────────────
-// Was: "6Hr Forecast" / "Pop%:" / "Temp:" / " Dew:" in handleHourlyFrame()
 const char forecastTitleStr[] = "6Hr Forecast";
 const char popLabelStr[] = "Pop%:";
 const char tempLabelStr[] = "Temp:";
 const char dewLabelStr[] = " Dew:";
 
 // ── Boot / progress messages ──────────────────────────────────────────────────
-// Was: hardcoded strings in setup() drawProgress() calls
 const char bootUpdatingTime[] = "Updating time...";
 const char bootUpdatingConditions[] = "Updating conditions...";
 const char bootDone[] = "Done...";
@@ -107,29 +76,27 @@ const char bootFetchingWeather[] = "Fetching weather data...";
 const char bootFlashOK[] = "Flash FS available!";
 const char bootFlashFail[] = "Flash FS initialisation failed!";
 const char bootRetry[] = "Fetch failed, retrying in 60 seconds...";
+const char strAPActive[] = "Access Point Active";  // Wi-Fi setup screen
 
 // ── Splash screen credits ─────────────────────────────────────────────────────
-// Was: hardcoded in setup()
 const char creditOriginal[] = "Original by: blog.squix.org";
 const char creditBodmer[] = "Adapted by: Bodmer";
 const char creditWabbit[] = "Open-Meteo by: Wabbitguy";
 
 // ── WebConfig UI strings ──────────────────────────────────────────────────────
-// Was: hardcoded inside buildPage() in WebConfig.cpp
 
 // Page / header
-const char wcTitle[] = "WabbitWeather";
 const char wcSaved[] = "&#10003; Settings saved and applied.";
 
 // WiFi reset modal
 const char wcWifiResetTitle[] = "&#x26A0; Reset WiFi?";
 const char wcWifiResetBody[] = "Erases saved WiFi credentials and reboots into "
-                               "setup mode. Reconnect via the WabbitWeather hotspot.";
+                               "setup mode. Reconnect via the " HOSTNAME " hotspot.";
 const char wcWifiResetYes[] = "Yes, reset";
 const char wcWifiResetCancel[] = "Cancel";
-const char wcWifiResetBtn[] = "&#x26A0; WiFi Reset";
+const char wcWifiResetBtn[] = "&#x26A0; Reset WiFi";
 const char wcWifiResetting[] = "Resetting WiFi...";
-const char wcWifiResetHotspot[] = "Rebooting. Connect to the <strong>WabbitWeather</strong> hotspot.";
+const char wcWifiResetHotspot[] = "Rebooting. Connect to the <strong>" HOSTNAME "</strong> hotspot.";
 
 // Section headings
 const char wcSecLocation[] = "Location";
@@ -184,8 +151,6 @@ const char wcSaveBtn[] = "Update &amp; Save";
 const char wcCancelBtn[] = "Cancel";
 
 // ── WMO weather code → display text ──────────────────────────────────────────
-// Use wmoDescription(id) where you currently use current->description
-// Use wmoMain(id)        where you currently use current->main
 inline const char* wmoDescription(uint16_t id) {
   switch (id) {
     case 0: return "Clear sky";
@@ -250,18 +215,18 @@ static const char* shortDOW[8] = { "???", "DIM", "LUN", "MAR", "MER", "JEU", "VE
 
 const char sunStr[] = "Soleil";
 const char cloudStr[] = "Nuages";
-const char humidityStr[] = "Humidite";  // é needs Noto Latin-1 — safe to use: "Humidit\xe9"
+const char humidityStr[] = "Humidité";
 
 static const char* moonPhase[8] = {
   "Nouvelle", "Croissant", "1er qrt", "Croissant",
-  "Pleine", "Decroissant", "Der qrt", "Decroissant"
+  "Pleine", "Décroissant", "Der qrt", "Décroissant"
 };
 
 const char riseStr[] = "SR:";
 const char setStr[] = "SS:";
 
-const char updatedStr[] = "Mis a jour: ";
-const char failedStr[] = "Echec: ";
+const char updatedStr[] = "Mis à jour: ";
+const char failedStr[] = "Échec: ";
 const char windMetric[] = " m/s";
 const char windImperial[] = " mph";
 const char pressImperial[] = " in";
@@ -271,68 +236,68 @@ const char tempImperial[] = "oF";
 const char amStr[] = "AM";
 const char pmStr[] = "PM";
 
-const char forecastTitleStr[] = "Previsions 6h";
-const char popLabelStr[] = "Prec%:";
+const char forecastTitleStr[] = "Prévisions 6h";
+const char popLabelStr[] = "Préc%:";
 const char tempLabelStr[] = "Temp:";
-const char dewLabelStr[] = " Rose:";
+const char dewLabelStr[] = " Rosée:";
 
-const char bootUpdatingTime[] = "Mise a jour heure...";
-const char bootUpdatingConditions[] = "Telechargement meteo...";
-const char bootDone[] = "Termine...";
-const char bootConnectedWifi[] = "WiFi connecte";
-const char bootFetchingWeather[] = "Chargement meteo...";
-const char bootFlashOK[] = "Flash FS pret!";
+const char bootUpdatingTime[] = "Mise à jour heure...";
+const char bootUpdatingConditions[] = "Téléchargement météo...";
+const char bootDone[] = "Terminé...";
+const char bootConnectedWifi[] = "WiFi connecté";
+const char bootFetchingWeather[] = "Chargement météo...";
+const char bootFlashOK[] = "Flash FS prêt!";
 const char bootFlashFail[] = "Erreur Flash FS!";
-const char bootRetry[] = "Echec, nouvel essai dans 60s...";
+const char bootRetry[] = "Échec, nouvel essai dans 60s...";
+const char strAPActive[] = "Point d'accès actif";  // Wi-Fi setup screen
 
 const char creditOriginal[] = "Original: blog.squix.org";
-const char creditBodmer[] = "Adapte par: Bodmer";
+const char creditBodmer[] = "Adapté par: Bodmer";
 const char creditWabbit[] = "Open-Meteo par: Wabbitguy";
 
-const char wcTitle[] = "WabbitWeather";
-const char wcSaved[] = "&#10003; Parametres enregistres.";
-const char wcWifiResetTitle[] = "&#x26A0; Reinitialiser WiFi ?";
+const char wcSaved[] = "&#10003; Paramètres enregistrés.";
+const char wcWifiResetTitle[] = "&#x26A0; Réinitialiser WiFi ?";
 const char wcWifiResetBody[] = "Efface les identifiants WiFi et redémarre en mode configuration.";
-const char wcWifiResetYes[] = "Oui, reinitialiser";
+const char wcWifiResetYes[] = "Oui, réinitialiser";
 const char wcWifiResetCancel[] = "Annuler";
-const char wcWifiResetBtn[] = "&#x26A0; WiFi Reset";
-const char wcWifiResetting[] = "Reinitialisation WiFi...";
-const char wcWifiResetHotspot[] = "Redemarrage. Connectez-vous au hotspot <strong>WabbitWeather</strong>.";
+const char wcWifiResetBtn[] = "&#x26A0; Réinitialiser WiFi";
+const char wcWifiResetting[] = "Réinitialisation WiFi...";
+const char wcWifiResetHotspot[] = "Redémarrage. Connectez-vous au hotspot <strong>" HOSTNAME "</strong>.";
 const char wcSecLocation[] = "Emplacement";
-const char wcSecDisplay[] = "Parametres d'affichage";
-const char wcSecTempColours[] = "Couleurs de temperature";
-const char wcSecPrecipColours[] = "Couleurs de precipitation";
+const char wcSecDisplay[] = "Paramètres d'affichage";
+const char wcSecTempColours[] = "Couleurs de température";
+const char wcSecPrecipColours[] = "Couleurs de précipitation";
 const char wcLatLabel[] = "Latitude";
 const char wcLonLabel[] = "Longitude";
-const char wcUnitsLabel[] = "Unites de temperature";
-const char wcImperial[] = "Imperiales (&deg;F)";
-const char wcMetric[] = "Metriques (&deg;C)";
+const char wcUnitsLabel[] = "Unités de température";
+const char wcImperial[] = "Impériales (&deg;F)";
+const char wcMetric[] = "Métriques (&deg;C)";
 const char wcClock24[] = "Horloge 24h";
-const char wcAutoDim[] = "Gradation automatique au crepuscule";
-const char wcNightBright[] = "Luminosite nocturne (0-255)";
-const char wcNightBrightHint[] = "0 = ecran eteint";
+const char wcAutoDim[] = "Gradation automatique au crépuscule";
+const char wcNightBright[] = "Luminosité nocturne (0-255)";
+const char wcNightBrightHint[] = "0 = écran éteint";
 const char wcShowBaro[] = "Afficher la pression";
-const char wcShowPrecip[] = "Afficher la probabilite de pluie";
+const char wcShowPrecip[] = "Afficher la probabilité de pluie";
 const char wcShowUV[] = "Afficher l'indice UV";
-const char wcShow6Hr[] = "Previsions sur 6h";
-const char wcForecastStart[]    = "Debut previsions";
+const char wcShow6Hr[] = "Prévisions sur 6h";
+const char wcForecastStart[]    = "Début prévisions";
 const char wcForecastToday[]    = "Aujourd'hui";
 const char wcForecastTomorrow[] = "Demain";
-const char wcIconSet[]         = "Icones meteo";
+const char wcIconSet[]         = "Icônes météo";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
 const char wcPressure[]        = "Pression";
 const char wcPressSeaLevel[]   = "Niveau de la mer";
 const char wcPressStation[]    = "Station";
-const char wcWeatherHeadings[] = "Couleur titres meteo";
+const char wcWeatherHeadings[] = "Couleur titres météo";
 const char wcAstroHeadings[] = "Couleur titres astronomie";
-const char wcHighTempThresh[] = "Seuil temperature haute (&deg;)";
-const char wcLowTempThresh[] = "Seuil temperature basse (&deg;)";
+const char wcHighTempThresh[] = "Seuil température haute (&deg;)";
+const char wcLowTempThresh[] = "Seuil température basse (&deg;)";
 const char wcHighTempColour[] = "Couleur temp haute";
 const char wcMidTempColour[] = "Couleur temp moyenne";
 const char wcLowTempColour[] = "Couleur temp basse";
-const char wcHighPrecipThresh[] = "Seuil precipitation haute (%)";
-const char wcLowPrecipThresh[] = "Seuil precipitation basse (%)";
+const char wcHighPrecipThresh[] = "Seuil précipitation haute (%)";
+const char wcLowPrecipThresh[] = "Seuil précipitation basse (%)";
 const char wcHighPOPColour[] = "Couleur POP haute";
 const char wcMidPOPColour[] = "Couleur POP moyenne";
 const char wcLowPOPColour[] = "Couleur POP basse";
@@ -347,28 +312,28 @@ inline const char* wmoDescription(uint16_t id) {
     case 3: return "Couvert";
     case 45: return "Brouillard";
     case 48: return "Brouillard givrant";
-    case 51: return "Bruine legere";
+    case 51: return "Bruine légère";
     case 53: return "Bruine";
     case 55: return "Bruine forte";
-    case 56: return "Bruine verglagante legere";
-    case 57: return "Bruine verglacante";
-    case 61: return "Pluie legere";
+    case 56: return "Bruine verglaçante légère";
+    case 57: return "Bruine verglaçante";
+    case 61: return "Pluie légère";
     case 63: return "Pluie";
     case 65: return "Forte pluie";
-    case 66: return "Pluie verglacante legere";
-    case 67: return "Pluie verglacante";
-    case 71: return "Neige legere";
+    case 66: return "Pluie verglaçante légère";
+    case 67: return "Pluie verglaçante";
+    case 71: return "Neige légère";
     case 73: return "Neige";
     case 75: return "Forte neige";
     case 77: return "Grains de neige";
-    case 80: return "Averses legeres";
+    case 80: return "Averses légères";
     case 81: return "Averses";
     case 82: return "Fortes averses";
     case 85: return "Averses de neige";
     case 86: return "Fortes averses de neige";
     case 95: return "Orage";
-    case 96: return "Orage avec grele";
-    case 99: return "Orage avec grele";
+    case 96: return "Orage avec grêle";
+    case 99: return "Orage avec grêle";
     default: return "Inconnu";
   }
 }
@@ -437,32 +402,32 @@ const char bootFetchingWeather[] = "Wetterdaten werden abgerufen...";
 const char bootFlashOK[] = "Flash FS bereit!";
 const char bootFlashFail[] = "Flash FS Fehler!";
 const char bootRetry[] = "Fehler, neuer Versuch in 60s...";
+const char strAPActive[] = "Zugangspunkt aktiv";  // Wi-Fi setup screen
 
 const char creditOriginal[] = "Original: blog.squix.org";
 const char creditBodmer[] = "Angepasst von: Bodmer";
 const char creditWabbit[] = "Open-Meteo von: Wabbitguy";
 
-const char wcTitle[] = "WabbitWeather";
 const char wcSaved[] = "&#10003; Einstellungen gespeichert.";
-const char wcWifiResetTitle[] = "&#x26A0; WiFi zuruecksetzen?";
-const char wcWifiResetBody[] = "Loescht WLAN-Daten und startet im Konfigurationsmodus neu.";
-const char wcWifiResetYes[] = "Ja, zuruecksetzen";
+const char wcWifiResetTitle[] = "&#x26A0; WiFi zurücksetzen?";
+const char wcWifiResetBody[] = "Löscht WLAN-Daten und startet im Konfigurationsmodus neu.";
+const char wcWifiResetYes[] = "Ja, zurücksetzen";
 const char wcWifiResetCancel[] = "Abbrechen";
-const char wcWifiResetBtn[] = "&#x26A0; WiFi Reset";
-const char wcWifiResetting[] = "WiFi wird zurueckgesetzt...";
-const char wcWifiResetHotspot[] = "Neustart. Verbinde mit dem Hotspot <strong>WabbitWeather</strong>.";
+const char wcWifiResetBtn[] = "&#x26A0; WiFi zurücksetzen";
+const char wcWifiResetting[] = "WiFi wird zurückgesetzt...";
+const char wcWifiResetHotspot[] = "Neustart. Verbinde mit dem Hotspot <strong>" HOSTNAME "</strong>.";
 const char wcSecLocation[] = "Standort";
 const char wcSecDisplay[] = "Anzeigeeinstellungen";
 const char wcSecTempColours[] = "Temperaturfarbschwellen";
 const char wcSecPrecipColours[] = "Niederschlagsfarbschwellen";
 const char wcLatLabel[] = "Breitengrad";
-const char wcLonLabel[] = "Laengengrad";
+const char wcLonLabel[] = "Längengrad";
 const char wcUnitsLabel[] = "Temperatureinheit";
 const char wcImperial[] = "Imperial (&deg;F)";
 const char wcMetric[] = "Metrisch (&deg;C)";
 const char wcClock24[] = "24-Stunden-Uhr";
 const char wcAutoDim[] = "Automatisch abdunkeln bei Dunkelheit";
-const char wcNightBright[] = "Nachtshelligkeit (0-255)";
+const char wcNightBright[] = "Nachthelligkeit (0-255)";
 const char wcNightBrightHint[] = "0 = Display aus";
 const char wcShowBaro[] = "Luftdruck anzeigen";
 const char wcShowPrecip[] = "Niederschlagswahrscheinlichkeit anzeigen";
@@ -495,12 +460,12 @@ const char wcCancelBtn[] = "Abbrechen";
 inline const char* wmoDescription(uint16_t id) {
   switch (id) {
     case 0: return "Klarer Himmel";
-    case 1: return "Ueberwiegend klar";
-    case 2: return "Teilweise bewoelkt";
+    case 1: return "Überwiegend klar";
+    case 2: return "Teilweise bewölkt";
     case 3: return "Bedeckt";
     case 45: return "Neblig";
     case 48: return "Gefrierender Nebel";
-    case 51: return "Leichter Nieseln";
+    case 51: return "Leichtes Nieseln";
     case 53: return "Nieseln";
     case 55: return "Starkes Nieseln";
     case 56: return "Leichter Eisregen";
@@ -551,7 +516,7 @@ inline const char* wmoMain(uint16_t id) {
 static const char* shortMonth[12] = {"Ene","Feb","Mar","Abr","May","Jun",
                                "Jul","Ago","Sep","Oct","Nov","Dic"};
 
-static const char* shortDOW[8] = { "???", "DOM", "LUN", "MAR", "MIE", "JUE", "VIE", "SAB" };
+static const char* shortDOW[8] = { "???", "DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB" };
 
 const char sunStr[] = "Sol";
 const char cloudStr[] = "Nubes";
@@ -576,7 +541,7 @@ const char tempImperial[] = "oF";
 const char amStr[] = "AM";
 const char pmStr[] = "PM";
 
-const char forecastTitleStr[] = "Pronostico 6h";
+const char forecastTitleStr[] = "Pronóstico 6h";
 const char popLabelStr[] = "Prec%:";
 const char tempLabelStr[] = "Temp:";
 const char dewLabelStr[] = " Roc:";
@@ -586,58 +551,58 @@ const char bootUpdatingConditions[] = "Actualizando condiciones...";
 const char bootDone[] = "Listo...";
 const char bootConnectedWifi[] = "WiFi conectado";
 const char bootFetchingWeather[] = "Obteniendo datos...";
-const char bootFlashOK[] = "Flash FS listo!";
-const char bootFlashFail[] = "Error en Flash FS!";
+const char bootFlashOK[] = "¡Flash FS listo!";
+const char bootFlashFail[] = "¡Error en Flash FS!";
 const char bootRetry[] = "Fallo, reintentando en 60s...";
+const char strAPActive[] = "Punto de acceso activo";  // Wi-Fi setup screen
 
 const char creditOriginal[] = "Original: blog.squix.org";
 const char creditBodmer[] = "Adaptado por: Bodmer";
 const char creditWabbit[] = "Open-Meteo por: Wabbitguy";
 
-const char wcTitle[] = "WabbitWeather";
-const char wcSaved[] = "&#10003; Configuracion guardada.";
-const char wcWifiResetTitle[] = "&#x26A0; Restablecer WiFi?";
-const char wcWifiResetBody[] = "Borra las credenciales WiFi y reinicia en modo configuracion.";
-const char wcWifiResetYes[] = "Si, restablecer";
+const char wcSaved[] = "&#10003; Configuración guardada.";
+const char wcWifiResetTitle[] = "&#x26A0; ¿Restablecer WiFi?";
+const char wcWifiResetBody[] = "Borra las credenciales WiFi y reinicia en modo configuración.";
+const char wcWifiResetYes[] = "Sí, restablecer";
 const char wcWifiResetCancel[] = "Cancelar";
-const char wcWifiResetBtn[] = "&#x26A0; WiFi Reset";
+const char wcWifiResetBtn[] = "&#x26A0; Restablecer WiFi";
 const char wcWifiResetting[] = "Restableciendo WiFi...";
-const char wcWifiResetHotspot[] = "Reiniciando. Conéctese al hotspot <strong>WabbitWeather</strong>.";
-const char wcSecLocation[] = "Ubicacion";
-const char wcSecDisplay[] = "Configuracion de pantalla";
+const char wcWifiResetHotspot[] = "Reiniciando. Conéctese al hotspot <strong>" HOSTNAME "</strong>.";
+const char wcSecLocation[] = "Ubicación";
+const char wcSecDisplay[] = "Configuración de pantalla";
 const char wcSecTempColours[] = "Colores de temperatura";
-const char wcSecPrecipColours[] = "Colores de precipitacion";
+const char wcSecPrecipColours[] = "Colores de precipitación";
 const char wcLatLabel[] = "Latitud";
 const char wcLonLabel[] = "Longitud";
 const char wcUnitsLabel[] = "Unidades de temperatura";
 const char wcImperial[] = "Imperial (&deg;F)";
-const char wcMetric[] = "Metrico (&deg;C)";
+const char wcMetric[] = "Métrico (&deg;C)";
 const char wcClock24[] = "Reloj de 24 horas";
 const char wcAutoDim[] = "Atenuar al anochecer";
 const char wcNightBright[] = "Brillo nocturno (0-255)";
 const char wcNightBrightHint[] = "0 = pantalla apagada";
-const char wcShowBaro[] = "Mostrar presion barometrica";
-const char wcShowPrecip[] = "Mostrar probabilidad de precipitacion";
-const char wcShowUV[] = "Mostrar indice UV";
-const char wcShow6Hr[] = "Mostrar pronostico de 6h";
-const char wcForecastStart[]    = "Inicio pronostico";
+const char wcShowBaro[] = "Mostrar presión barométrica";
+const char wcShowPrecip[] = "Mostrar probabilidad de precipitación";
+const char wcShowUV[] = "Mostrar índice UV";
+const char wcShow6Hr[] = "Mostrar pronóstico de 6h";
+const char wcForecastStart[]    = "Inicio pronóstico";
 const char wcForecastToday[]    = "Hoy";
-const char wcForecastTomorrow[] = "Manana";
+const char wcForecastTomorrow[] = "Mañana";
 const char wcIconSet[]         = "Iconos del tiempo";
-const char wcIconStandard[]    = "Estandar";
+const char wcIconStandard[]    = "Estándar";
 const char wcIconMeteocons[]   = "Meteocons";
-const char wcPressure[]        = "Presion";
+const char wcPressure[]        = "Presión";
 const char wcPressSeaLevel[]   = "Nivel del mar";
-const char wcPressStation[]    = "Estacion";
-const char wcWeatherHeadings[] = "Color titulos meteo";
-const char wcAstroHeadings[] = "Color titulos astronomia";
+const char wcPressStation[]    = "Estación";
+const char wcWeatherHeadings[] = "Color títulos meteo";
+const char wcAstroHeadings[] = "Color títulos astronomía";
 const char wcHighTempThresh[] = "Umbral temperatura alta (&deg;)";
 const char wcLowTempThresh[] = "Umbral temperatura baja (&deg;)";
 const char wcHighTempColour[] = "Color temp alta";
 const char wcMidTempColour[] = "Color temp media";
 const char wcLowTempColour[] = "Color temp baja";
-const char wcHighPrecipThresh[] = "Umbral precipitacion alta (%)";
-const char wcLowPrecipThresh[] = "Umbral precipitacion baja (%)";
+const char wcHighPrecipThresh[] = "Umbral precipitación alta (%)";
+const char wcLowPrecipThresh[] = "Umbral precipitación baja (%)";
 const char wcHighPOPColour[] = "Color POP alto";
 const char wcMidPOPColour[] = "Color POP medio";
 const char wcLowPOPColour[] = "Color POP bajo";
@@ -742,20 +707,20 @@ const char bootFetchingWeather[] = "Weerdata ophalen...";
 const char bootFlashOK[] = "Flash FS gereed!";
 const char bootFlashFail[] = "Flash FS fout!";
 const char bootRetry[] = "Mislukt, opnieuw in 60s...";
+const char strAPActive[] = "Toegangspunt actief";  // Wi-Fi setup screen
 
 const char creditOriginal[] = "Origineel: blog.squix.org";
 const char creditBodmer[] = "Aangepast door: Bodmer";
 const char creditWabbit[] = "Open-Meteo door: Wabbitguy";
 
-const char wcTitle[] = "WabbitWeather";
 const char wcSaved[] = "&#10003; Instellingen opgeslagen.";
 const char wcWifiResetTitle[] = "&#x26A0; WiFi resetten?";
 const char wcWifiResetBody[] = "Verwijdert WiFi-gegevens en herstart in configuratiemodus.";
 const char wcWifiResetYes[] = "Ja, resetten";
 const char wcWifiResetCancel[] = "Annuleren";
-const char wcWifiResetBtn[] = "&#x26A0; WiFi Reset";
+const char wcWifiResetBtn[] = "&#x26A0; WiFi resetten";
 const char wcWifiResetting[] = "WiFi wordt gereset...";
-const char wcWifiResetHotspot[] = "Herstarten. Verbind met het <strong>WabbitWeather</strong> hotspot.";
+const char wcWifiResetHotspot[] = "Herstarten. Verbind met het <strong>" HOSTNAME "</strong> hotspot.";
 const char wcSecLocation[] = "Locatie";
 const char wcSecDisplay[] = "Weergave-instellingen";
 const char wcSecTempColours[] = "Temperatuurdrempelkleuren";
@@ -852,7 +817,7 @@ inline const char* wmoMain(uint16_t id) {
 
 #define NOMINATIM_LANG "pt"
 
-static const char* shortDOW[8] = { "???", "DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SAB" };
+static const char* shortDOW[8] = { "???", "DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB" };
 
 const char sunStr[]      = "Sol";
 const char cloudStr[]    = "Nuvens";
@@ -881,77 +846,77 @@ static const char* shortMonth[12] = {
   "Jan","Fev","Mar","Abr","Mai","Jun",
   "Jul","Ago","Set","Out","Nov","Dez"};
 
-const char forecastTitleStr[] = "Previsao 6h";
+const char forecastTitleStr[] = "Previsão 6h";
 const char popLabelStr[]      = "Prec%:";
 const char tempLabelStr[]     = "Temp:";
 const char dewLabelStr[]      = " Orv:";
 
 const char bootUpdatingTime[]       = "Atualizando hora...";
-const char bootUpdatingConditions[] = "Atualizando condicoes...";
-const char bootDone[]               = "Concluido...";
+const char bootUpdatingConditions[] = "Atualizando condições...";
+const char bootDone[]               = "Concluído...";
 const char bootConnectedWifi[]      = "WiFi conectado";
 const char bootFetchingWeather[]    = "Obtendo dados...";
 const char bootFlashOK[]            = "Flash FS pronto!";
 const char bootFlashFail[]          = "Erro no Flash FS!";
 const char bootRetry[]              = "Falha, tentando em 60s...";
+const char strAPActive[] = "Ponto de acesso ativo";  // Wi-Fi setup screen
 
 const char creditOriginal[]  = "Original: blog.squix.org";
 const char creditBodmer[]    = "Adaptado por: Bodmer";
 const char creditWabbit[]    = "Open-Meteo por: Wabbitguy";
 
-const char wcTitle[]            = "WabbitWeather";
-const char wcSaved[]            = "&#10003; Configuracoes salvas.";
+const char wcSaved[]            = "&#10003; Configurações salvas.";
 const char wcWifiResetTitle[]   = "&#x26A0; Redefinir WiFi?";
-const char wcWifiResetBody[]    = "Apaga credenciais WiFi e reinicia no modo configuracao.";
+const char wcWifiResetBody[]    = "Apaga credenciais WiFi e reinicia no modo configuração.";
 const char wcWifiResetYes[]     = "Sim, redefinir";
 const char wcWifiResetCancel[]  = "Cancelar";
-const char wcWifiResetBtn[]     = "&#x26A0; WiFi Reset";
+const char wcWifiResetBtn[]     = "&#x26A0; Redefinir WiFi";
 const char wcWifiResetting[]    = "Redefinindo WiFi...";
-const char wcWifiResetHotspot[] = "Reiniciando. Conecte-se ao hotspot <strong>WabbitWeather</strong>.";
-const char wcSecLocation[]      = "Localizacao";
-const char wcSecDisplay[]       = "Configuracoes de exibicao";
+const char wcWifiResetHotspot[] = "Reiniciando. Conecte-se ao hotspot <strong>" HOSTNAME "</strong>.";
+const char wcSecLocation[]      = "Localização";
+const char wcSecDisplay[]       = "Configurações de exibição";
 const char wcSecTempColours[]   = "Cores de temperatura";
-const char wcSecPrecipColours[] = "Cores de precipitacao";
+const char wcSecPrecipColours[] = "Cores de precipitação";
 const char wcLatLabel[]         = "Latitude";
 const char wcLonLabel[]         = "Longitude";
 const char wcUnitsLabel[]       = "Unidade de temperatura";
 const char wcImperial[]         = "Imperial (&deg;F)";
-const char wcMetric[]           = "Metrico (&deg;C)";
-const char wcClock24[]          = "Relogio 24h";
+const char wcMetric[]           = "Métrico (&deg;C)";
+const char wcClock24[]          = "Relógio 24h";
 const char wcAutoDim[]          = "Diminuir ao anoitecer";
 const char wcNightBright[]      = "Brilho noturno (0-255)";
 const char wcNightBrightHint[]  = "0 = tela apagada";
-const char wcShowBaro[]         = "Mostrar pressao barometrica";
+const char wcShowBaro[]         = "Mostrar pressão barométrica";
 const char wcShowPrecip[]       = "Mostrar probabilidade de chuva";
-const char wcShowUV[]           = "Mostrar indice UV";
-const char wcShow6Hr[]          = "Previsao de 6h";
-const char wcForecastStart[]    = "Inicio previsao";
+const char wcShowUV[]           = "Mostrar índice UV";
+const char wcShow6Hr[]          = "Previsão de 6h";
+const char wcForecastStart[]    = "Início previsão";
 const char wcForecastToday[]    = "Hoje";
-const char wcForecastTomorrow[] = "Amanha";
-const char wcIconSet[]         = "Icones do tempo";
-const char wcIconStandard[]    = "Padrao";
+const char wcForecastTomorrow[] = "Amanhã";
+const char wcIconSet[]         = "Ícones do tempo";
+const char wcIconStandard[]    = "Padrão";
 const char wcIconMeteocons[]   = "Meteocons";
-const char wcPressure[]        = "Pressao";
-const char wcPressSeaLevel[]   = "Nivel do mar";
-const char wcPressStation[]    = "Estacao";
-const char wcWeatherHeadings[]  = "Cor titulos meteorologia";
-const char wcAstroHeadings[]    = "Cor titulos astronomia";
+const char wcPressure[]        = "Pressão";
+const char wcPressSeaLevel[]   = "Nível do mar";
+const char wcPressStation[]    = "Estação";
+const char wcWeatherHeadings[]  = "Cor títulos meteorologia";
+const char wcAstroHeadings[]    = "Cor títulos astronomia";
 const char wcHighTempThresh[]   = "Limite temp alta (&deg;)";
 const char wcLowTempThresh[]    = "Limite temp baixa (&deg;)";
 const char wcHighTempColour[]   = "Cor temp alta";
-const char wcMidTempColour[]    = "Cor temp media";
+const char wcMidTempColour[]    = "Cor temp média";
 const char wcLowTempColour[]    = "Cor temp baixa";
-const char wcHighPrecipThresh[] = "Limite precipitacao alta (%)";
-const char wcLowPrecipThresh[]  = "Limite precipitacao baixa (%)";
+const char wcHighPrecipThresh[] = "Limite precipitação alta (%)";
+const char wcLowPrecipThresh[]  = "Limite precipitação baixa (%)";
 const char wcHighPOPColour[]    = "Cor POP alto";
-const char wcMidPOPColour[]     = "Cor POP medio";
+const char wcMidPOPColour[]     = "Cor POP médio";
 const char wcLowPOPColour[]     = "Cor POP baixo";
 const char wcSaveBtn[]          = "Salvar";
 const char wcCancelBtn[]        = "Cancelar";
 
 inline const char* wmoDescription(uint16_t id) {
   switch (id) {
-    case  0: return "Ceu limpo";
+    case  0: return "Céu limpo";
     case  1: return "Predominantemente limpo";
     case  2: return "Parcialmente nublado";
     case  3: return "Nublado";
@@ -970,7 +935,7 @@ inline const char* wmoDescription(uint16_t id) {
     case 71: return "Neve leve";
     case 73: return "Neve";
     case 75: return "Neve intensa";
-    case 77: return "Graos de neve";
+    case 77: return "Grãos de neve";
     case 80: return "Pancadas leves";
     case 81: return "Pancadas de chuva";
     case 82: return "Pancadas intensas";
@@ -1005,21 +970,21 @@ inline const char* wmoMain(uint16_t id) {
 
 #define NOMINATIM_LANG "tr"
 
-static const char* shortDOW[8] = { "???", "PAZ", "PZT", "SAL", "CAR", "PER", "CUM", "CMT" };
+static const char* shortDOW[8] = { "???", "PAZ", "PZT", "SAL", "ÇAR", "PER", "CUM", "CMT" };
 
-const char sunStr[]      = "Gunes";
+const char sunStr[]      = "Güneş";
 const char cloudStr[]    = "Bulut";
 const char humidityStr[] = "Nem";
 
 static const char* moonPhase[8] = {
-  "Yeni", "Hilal", "Ilk Cey", "Hilal",
-  "Dolun", "Son Cey", "Son Cey", "Hilal"
+  "Yeni", "Hilal", "İlk Çeyrek", "Şişkin",
+  "Dolunay", "Şişkin", "Son Çeyrek", "Hilal"
 };
 
 const char riseStr[] = "SR:";
 const char setStr[]  = "SS:";
 
-const char updatedStr[]    = "Guncellendi: ";
+const char updatedStr[]    = "Güncellendi: ";
 const char failedStr[]     = "Hata: ";
 const char windMetric[]    = " m/s";
 const char windImperial[]  = " mph";
@@ -1031,121 +996,121 @@ const char amStr[] = "AM";
 const char pmStr[] = "PM";
 
 static const char* shortMonth[12] = {
-  "Oca","Sub","Mar","Nis","May","Haz",
-  "Tem","Agu","Eyl","Eki","Kas","Ara"};
+  "Oca","Şub","Mar","Nis","May","Haz",
+  "Tem","Ağu","Eyl","Eki","Kas","Ara"};
 
 const char forecastTitleStr[] = "6s Tahmin";
-const char popLabelStr[]      = "Yag%:";
-const char tempLabelStr[]     = "Sic:";
-const char dewLabelStr[]      = " Ciy:";
+const char popLabelStr[]      = "Yağ%:";
+const char tempLabelStr[]     = "Sıc:";
+const char dewLabelStr[]      = " Çiy:";
 
-const char bootUpdatingTime[]       = "Saat guncelleniyor...";
-const char bootUpdatingConditions[] = "Hava durumu yukleniyor...";
-const char bootDone[]               = "Tamamlandi...";
-const char bootConnectedWifi[]      = "WiFi baglandi";
-const char bootFetchingWeather[]    = "Hava verisi aliniyor...";
-const char bootFlashOK[]            = "Flash FS hazir!";
-const char bootFlashFail[]          = "Flash FS hatasi!";
-const char bootRetry[]              = "Basarisiz, 60s sonra tekrar...";
+const char bootUpdatingTime[]       = "Saat güncelleniyor...";
+const char bootUpdatingConditions[] = "Hava durumu yükleniyor...";
+const char bootDone[]               = "Tamamlandı...";
+const char bootConnectedWifi[]      = "WiFi bağlandı";
+const char bootFetchingWeather[]    = "Hava verisi alınıyor...";
+const char bootFlashOK[]            = "Flash FS hazır!";
+const char bootFlashFail[]          = "Flash FS hatası!";
+const char bootRetry[]              = "Başarısız, 60s sonra tekrar...";
+const char strAPActive[] = "Erişim noktası aktif";  // Wi-Fi setup screen
 
 const char creditOriginal[]  = "Orijinal: blog.squix.org";
 const char creditBodmer[]    = "Uyarlayan: Bodmer";
 const char creditWabbit[]    = "Open-Meteo: Wabbitguy";
 
-const char wcTitle[]            = "WabbitWeather";
 const char wcSaved[]            = "&#10003; Ayarlar kaydedildi.";
-const char wcWifiResetTitle[]   = "&#x26A0; WiFi Sifirla?";
-const char wcWifiResetBody[]    = "WiFi bilgilerini siler ve yapilandirma modunda yeniden baslatir.";
-const char wcWifiResetYes[]     = "Evet, sifirla";
-const char wcWifiResetCancel[]  = "Iptal";
-const char wcWifiResetBtn[]     = "&#x26A0; WiFi Reset";
-const char wcWifiResetting[]    = "WiFi sifirlanıyor...";
-const char wcWifiResetHotspot[] = "Yeniden baslatiliyor. <strong>WabbitWeather</strong> hotspotuna baglanin.";
+const char wcWifiResetTitle[]   = "&#x26A0; WiFi Sıfırla?";
+const char wcWifiResetBody[]    = "WiFi bilgilerini siler ve yapılandırma modunda yeniden başlatır.";
+const char wcWifiResetYes[]     = "Evet, sıfırla";
+const char wcWifiResetCancel[]  = "İptal";
+const char wcWifiResetBtn[]     = "&#x26A0; WiFi Sıfırla";
+const char wcWifiResetting[]    = "WiFi sıfırlanıyor...";
+const char wcWifiResetHotspot[] = "Yeniden başlatılıyor. <strong>" HOSTNAME "</strong> hotspotuna bağlanın.";
 const char wcSecLocation[]      = "Konum";
-const char wcSecDisplay[]       = "Ekran Ayarlari";
-const char wcSecTempColours[]   = "Sicaklik Esik Renkleri";
-const char wcSecPrecipColours[] = "Yagis Esik Renkleri";
+const char wcSecDisplay[]       = "Ekran Ayarları";
+const char wcSecTempColours[]   = "Sıcaklık Eşik Renkleri";
+const char wcSecPrecipColours[] = "Yağış Eşik Renkleri";
 const char wcLatLabel[]         = "Enlem";
 const char wcLonLabel[]         = "Boylam";
-const char wcUnitsLabel[]       = "Sicaklik Birimi";
+const char wcUnitsLabel[]       = "Sıcaklık Birimi";
 const char wcImperial[]         = "Emperyal (&deg;F)";
 const char wcMetric[]           = "Metrik (&deg;C)";
-const char wcClock24[]          = "24 saat formati";
+const char wcClock24[]          = "24 saat formatı";
 const char wcAutoDim[]          = "Alacakaranlıkta karart";
-const char wcNightBright[]      = "Gece parlaklik (0-255)";
-const char wcNightBrightHint[]  = "0 = ekran kapali";
-const char wcShowBaro[]         = "Barometre goster";
-const char wcShowPrecip[]       = "Yagis olasiligi goster";
-const char wcShowUV[]           = "UV indeksi goster";
-const char wcShow6Hr[]          = "6 saatlik tahmin goster";
-const char wcForecastStart[]    = "Tahmin baslangici";
-const char wcForecastToday[]    = "Bugun";
-const char wcForecastTomorrow[] = "Yarin";
+const char wcNightBright[]      = "Gece parlaklığı (0-255)";
+const char wcNightBrightHint[]  = "0 = ekran kapalı";
+const char wcShowBaro[]         = "Barometre göster";
+const char wcShowPrecip[]       = "Yağış olasılığı göster";
+const char wcShowUV[]           = "UV indeksi göster";
+const char wcShow6Hr[]          = "6 saatlik tahmin göster";
+const char wcForecastStart[]    = "Tahmin başlangıcı";
+const char wcForecastToday[]    = "Bugün";
+const char wcForecastTomorrow[] = "Yarın";
 const char wcIconSet[]         = "Hava durumu simgeleri";
 const char wcIconStandard[]    = "Standart";
 const char wcIconMeteocons[]   = "Meteocons";
-const char wcPressure[]        = "Basinc";
+const char wcPressure[]        = "Basınç";
 const char wcPressSeaLevel[]   = "Deniz seviyesi";
-const char wcPressStation[]    = "Istasyon";
-const char wcWeatherHeadings[]  = "Hava durumu baslik rengi";
-const char wcAstroHeadings[]    = "Astronomi baslik rengi";
-const char wcHighTempThresh[]   = "Yuksek sicaklik esigi (&deg;)";
-const char wcLowTempThresh[]    = "Dusuk sicaklik esigi (&deg;)";
-const char wcHighTempColour[]   = "Yuksek sicaklik rengi";
-const char wcMidTempColour[]    = "Orta sicaklik rengi";
-const char wcLowTempColour[]    = "Dusuk sicaklik rengi";
-const char wcHighPrecipThresh[] = "Yuksek yagis esigi (%)";
-const char wcLowPrecipThresh[]  = "Dusuk yagis esigi (%)";
-const char wcHighPOPColour[]    = "Yuksek YOO rengi";
+const char wcPressStation[]    = "İstasyon";
+const char wcWeatherHeadings[]  = "Hava durumu başlık rengi";
+const char wcAstroHeadings[]    = "Astronomi başlık rengi";
+const char wcHighTempThresh[]   = "Yüksek sıcaklık eşiği (&deg;)";
+const char wcLowTempThresh[]    = "Düşük sıcaklık eşiği (&deg;)";
+const char wcHighTempColour[]   = "Yüksek sıcaklık rengi";
+const char wcMidTempColour[]    = "Orta sıcaklık rengi";
+const char wcLowTempColour[]    = "Düşük sıcaklık rengi";
+const char wcHighPrecipThresh[] = "Yüksek yağış eşiği (%)";
+const char wcLowPrecipThresh[]  = "Düşük yağış eşiği (%)";
+const char wcHighPOPColour[]    = "Yüksek YOO rengi";
 const char wcMidPOPColour[]     = "Orta YOO rengi";
-const char wcLowPOPColour[]     = "Dusuk YOO rengi";
+const char wcLowPOPColour[]     = "Düşük YOO rengi";
 const char wcSaveBtn[]          = "Kaydet";
-const char wcCancelBtn[]        = "Iptal";
+const char wcCancelBtn[]        = "İptal";
 
 inline const char* wmoDescription(uint16_t id) {
   switch (id) {
-    case  0: return "Acik hava";
-    case  1: return "Cok az bulutlu";
-    case  2: return "Parcali bulutlu";
+    case  0: return "Açık hava";
+    case  1: return "Çok az bulutlu";
+    case  2: return "Parçalı bulutlu";
     case  3: return "Bulutlu";
     case 45: return "Sisli";
     case 48: return "Buzlu sis";
-    case 51: return "Hafif cicek yagmuru";
-    case 53: return "Cicek yagmuru";
-    case 55: return "Yogun cicek yagmuru";
-    case 56: return "Hafif buzlu cicek yagmuru";
-    case 57: return "Buzlu cicek yagmuru";
-    case 61: return "Hafif yagmur";
-    case 63: return "Yagmur";
-    case 65: return "Yogun yagmur";
-    case 66: return "Hafif buzlu yagmur";
-    case 67: return "Buzlu yagmur";
+    case 51: return "Hafif çisenti";
+    case 53: return "Çisenti";
+    case 55: return "Yoğun çisenti";
+    case 56: return "Hafif buzlu çisenti";
+    case 57: return "Buzlu çisenti";
+    case 61: return "Hafif yağmur";
+    case 63: return "Yağmur";
+    case 65: return "Yoğun yağmur";
+    case 66: return "Hafif buzlu yağmur";
+    case 67: return "Buzlu yağmur";
     case 71: return "Hafif kar";
     case 73: return "Kar";
-    case 75: return "Yogun kar";
+    case 75: return "Yoğun kar";
     case 77: return "Kar taneleri";
-    case 80: return "Hafif saganak";
-    case 81: return "Saganak yagmur";
-    case 82: return "Yogun saganak";
-    case 85: return "Karli saganak";
-    case 86: return "Yogun karli saganak";
-    case 95: return "Firtina";
-    case 96: return "Dolu ile firtina";
-    case 99: return "Dolu ile firtina";
+    case 80: return "Hafif sağanak";
+    case 81: return "Sağanak yağmur";
+    case 82: return "Yoğun sağanak";
+    case 85: return "Karlı sağanak";
+    case 86: return "Yoğun karlı sağanak";
+    case 95: return "Fırtına";
+    case 96: return "Dolu ile fırtına";
+    case 99: return "Dolu ile fırtına";
     default: return "Bilinmiyor";
   }
 }
 
 inline const char* wmoMain(uint16_t id) {
-  if (id == 0 || id == 1)             return "Acik";
+  if (id == 0 || id == 1)             return "Açık";
   if (id == 2 || id == 3)             return "Bulutlu";
   if (id == 45 || id == 48)           return "Sis";
-  if (id >= 51 && id <= 57)           return "Cicek yagmuru";
-  if (id >= 61 && id <= 67)           return "Yagmur";
+  if (id >= 51 && id <= 57)           return "Çisenti";
+  if (id >= 61 && id <= 67)           return "Yağmur";
   if (id >= 71 && id <= 77)           return "Kar";
-  if (id >= 80 && id <= 82)           return "Yagmur";
+  if (id >= 80 && id <= 82)           return "Yağmur";
   if (id == 85 || id == 86)           return "Kar";
-  if (id == 95 || id == 96 || id==99) return "Firtina";
+  if (id == 95 || id == 96 || id==99) return "Fırtına";
   return "Bilinmiyor";
 }
 

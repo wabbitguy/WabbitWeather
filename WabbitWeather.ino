@@ -7,17 +7,8 @@
 //#define RANDOM_LOCATION // Test only, selects random weather location every refresh
 //#define SHOW_JSON
 
-// This sketch uses font files created from the Noto family of fonts as bitmaps
-// generated from these fonts may be freely distributed:
-// https://www.google.com/get/noto/
-
-// A processing sketch to create new fonts can be found in the Tools folder of TFT_eSPI
-// https://github.com/Bodmer/TFT_eSPI/tree/master/Tools/Create_Smooth_Font/Create_font
-// New fonts can be generated to include language specific characters. The Noto family
-// of fonts has an extensive character set coverage.
-
-// Json streaming parser (do not use IDE library manager version) to use is here:
-// https://github.com/Bodmer/JSON_Decoder
+// Fonts are made from the freely distributable Noto family: https://www.google.com/get/noto/
+// JSON parser (not the Library Manager version): https://github.com/Bodmer/JSON_Decoder
 
 // Modifications to use Open Meteo by WabbitGuy (Mel)
 
@@ -29,7 +20,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 
-#define WABBIT_VERSION "Version: 1.7.0"
+#define WABBIT_VERSION "Version: 1.8.0"
 
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -71,16 +62,12 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 
 OW_Weather ow;  // Weather forecast library instance
 
-// Weather for the location on screen — these point into the wx* cache below
-// (see selectLocationData()), so all the drawing code just uses them
+// Weather for the location on screen; these point into the wx* cache below (selectLocationData())
 OW_current *current;
 OW_hourly *hourly;
 OW_daily *daily;
 
-// Per-location weather cache: [0] = location 1, [1] = location 2, [2] = scratch.
-// Each download parses into the scratch set and is swapped into place only if
-// it succeeds, so a failed or half-parsed download never wipes a location's
-// last good data.
+// Weather cache: [0] = location 1, [1] = location 2, [2] = scratch (swapped in only after a good download)
 #define WX_SCRATCH 2
 OW_current *wxCurrent[3];
 OW_hourly *wxHourly[3];
@@ -91,6 +78,7 @@ BDC_location bcd;
 BDC_current *BDCcurrent;  // struct that holds the location data
 
 boolean booted = true;
+bool portalShown = false;  // the Wi-Fi setup screen was shown this boot
 
 bool forecastPage = false;       // false = days 1-4 (default), true = days 5-8
 uint32_t forecastPageTimer = 0;  // millis() timestamp when forecastPage was set true
@@ -112,11 +100,10 @@ inline uint8_t activeSlot() {
   return altLocation ? 1 : 0;
 }
 
+#define DATE_LINE_PAD 196  // widest Updated/Failed line in any language; ends at x 218, clear of the Wi-Fi bars
 #define LONG_PRESS_MS 2000  // hold the weather area this long to force a refresh
 
-// Clock layout — hour, colon and minute are drawn as three independently
-// anchored strings (see drawTime()) so the colon lives at a fixed pixel
-// spot forever and blinkColon() never has to measure or move anything.
+// Hour, colon and minute are drawn separately, so the colon never moves (drawTime())
 static const int16_t CLOCK_Y = 53;
 static int16_t clockColonX = 120;  // fixed on-screen colon position
 static bool blinkOn = true;
@@ -205,10 +192,7 @@ void setup() {
 #ifdef SERIAL_MESSAGES
   //listFiles();
 #endif
-  //
-  // Enable if you want to erase SPIFFS, this takes some time!
-  // then disable and reload sketch to avoid reformatting on every boot!
-#ifdef FORMAT_LittleFS
+#ifdef FORMAT_LittleFS  // erases LittleFS on every boot; remove again once done
   tft.setTextDatum(BC_DATUM);  // Bottom Centre datum
   tft.drawString("Formatting LittleFS, so wait!", 120, 195);
   SPIFFS.format();
@@ -240,7 +224,11 @@ void setup() {
   WiFiManager wm;
   wm.setAPCallback(configModeCallback);
   wm.setHostname(HOSTNAME);  // name shown in the router's device list
-  wm.autoConnect(DEFAULT_CAPTIVE_SSID);
+  wm.autoConnect(HOSTNAME);  // the Wi-Fi setup hotspot's name
+  if (portalShown) {  // clear the Wi-Fi setup screen
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  }
 
   tft.setTextDatum(BC_DATUM);
   tft.setTextPadding(240);        // Pad next drawString() text to full width to over-write old text
@@ -264,10 +252,7 @@ void setup() {
   delay(2000);
   //
   syncTime();  // now we go look for a time server
-  // Arm the NTP re-sync timer for 4hr + half a weather interval from now —
-  // see NTP_Time.h for why that offset keeps it clear of the weather fetch
-  // schedule permanently, not just by luck of boot timing.
-  nextNTPSync = millis() + NTP_SYNC_OFFSET_MS + NTP_SYNC_INTERVAL_MS;
+  nextNTPSync = millis() + NTP_SYNC_OFFSET_MS + NTP_SYNC_INTERVAL_MS;  // offset keeps it clear of the weather fetch
   //
   tft.unloadFont();
 
@@ -294,11 +279,7 @@ void loop() {
     lastDownloadUpdate = millis();
   }
 
-  // Re-sync with pool.ntp.org — its own millis() timer, deliberately not
-  // tied to the wall clock or to location switches (touch handler doesn't
-  // touch nextNTPSync). See NTP_Time.h for why the baked-in offset keeps
-  // this permanently clear of the weather fetch above.
-  if (millis() >= nextNTPSync) {
+  if (millis() >= nextNTPSync) {  // NTP re-sync, kept clear of the weather fetch (NTP_Time.h)
     syncTime();
     nextNTPSync += NTP_SYNC_INTERVAL_MS;
   }
@@ -311,9 +292,7 @@ void loop() {
     lastMinute = minute();
     drawWiFiQuality();  // update signal strength once a minute
 
-    // At 2am re-fetch timezone offsets from timeapi.io to catch any DST changes —
-    // this stays wall-clock based (DST happens at real calendar 2am), unlike NTP sync above.
-    if (booted || lastHour != hour()) {
+    if (booted || lastHour != hour()) {  // hourly; at 2am the timezone offsets are re-fetched for DST
       if (hour(toLocal(now())) == 2) {
         checkTimezoneOffsets();
       }
@@ -361,17 +340,14 @@ void loop() {
     bool weatherArea = (p.y >= 900 && p.y < 1800);
     bool longPress = false;
 
-    // Wait for release, timing the hold. Released = no touch for 60ms, so a
-    // momentary pressure dip during a long hold doesn't cut it short.
+    // Wait for release (no touch for 60ms), timing the hold
     uint32_t pressStart = millis();
     uint32_t lastTouched = pressStart;
     uint8_t ringShown = 0;
     while (millis() - lastTouched < 60) {
       if (touchscreen.touched()) lastTouched = millis();
       uint32_t held = millis() - pressStart;
-      // Ring fills while the weather area is held — full = let go to refresh.
-      // Waits 250ms so an ordinary tap doesn't flash it.
-      if (weatherArea && !longPress && held >= 250) {
+      if (weatherArea && !longPress && held >= 250) {  // ring fills while held; full = let go to refresh
         uint8_t pct = min(held * 100 / LONG_PRESS_MS, (uint32_t)100);
         if (pct >= ringShown + 2 || pct == 100) {  // redraw every 2%, not every 10ms
           drawProgressRing(pct);
@@ -394,8 +370,7 @@ void loop() {
       altLocation = !altLocation;
       runBdcOnce = false;
       Serial.println(altLocation ? "Switched to TZ2" : "Switched to TZ1");
-      // Cached weather younger than the refresh interval is shown as-is;
-      // older (or none) is downloaded. The 30 min timer isn't touched either way.
+      // Cached weather younger than the refresh interval is shown; older (or none) is downloaded
       uint8_t slot = activeSlot();
       bool fresh = lastGoodFetch[slot] != 0 && (now() - lastGoodFetch[slot]) < UPDATE_INTERVAL_SECS;
       redrawScreen(!fresh);
@@ -429,9 +404,7 @@ void updateData(bool allowRetry) {
   if (booted) drawProgress(50, bootUpdatingConditions);
   else drawProgressRing(50);
 
-  // Create the structures that hold the retrieved weather — one set per
-  // location plus the scratch set downloads parse into
-  if (runOnce == false) {
+  if (runOnce == false) {  // weather structures: one per location plus the scratch set
     for (uint8_t i = 0; i < 3; i++) {
       wxCurrent[i] = new OW_current;
       wxDaily[i] = new OW_daily;
@@ -460,10 +433,7 @@ void updateData(bool allowRetry) {
   parsed = ow.getForecast(wxCurrent[WX_SCRATCH], wxHourly[WX_SCRATCH], wxDaily[WX_SCRATCH],
                           activeLat, activeLon, units);
 
-  // Scheduled updates try again in 60 seconds if it fails. A touch or Save
-  // doesn't — someone's standing at the screen, which would be frozen for that
-  // minute — and shows this location's cached data instead.
-  if (!parsed && allowRetry) {
+  if (!parsed && allowRetry) {  // scheduled updates retry in 60s; a touch or Save shows cached data instead
     Serial.println("Fetch failed, retrying in 60 seconds...");
     delay(60000);
     parsed = ow.getForecast(wxCurrent[WX_SCRATCH], wxHourly[WX_SCRATCH], wxDaily[WX_SCRATCH],
@@ -490,17 +460,12 @@ void updateData(bool allowRetry) {
     eraseProgressRing();
   }
 
-  // No second city lookup here if the one above failed — retrying within
-  // a second could hit Nominatim while it's refusing us. The name stays
-  // "Unknown" until the next scheduled update or touch switch tries again.
+  // A failed city lookup isn't retried here (Nominatim may be refusing us); the next update tries again
 
   if (!parsed) Serial.println("Failed to get weather");
 
   if (lastGoodFetch[slot] != 0) {
-    // Fresh data, or this location's last good data if the download failed.
-    // Short outages ride through silently — drawWeatherScreen() only adds the
-    // red "Failed:" line once that data is over an hour old.
-    drawWeatherScreen();
+    drawWeatherScreen();  // fresh or last good data; "Failed:" shows once it's over an hour old
   } else {
     drawUpdateFailedLine();  // nothing cached for this location to fall back on
   }
@@ -537,14 +502,10 @@ void drawWeatherScreen() {
 
   tft.unloadFont();
 
-  // Update the temperature here so we don't need to keep
-  // loading and unloading font which takes time
-  tft.loadFont(AA_FONT_LARGE, LittleFS);
+  tft.loadFont(AA_FONT_LARGE, LittleFS);  // temperature drawn here to save reloading the font
   tft.setTextDatum(TR_DATUM);
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
-  // " -88" (64px) also covers 3 digits ("105" is 63px) — any wider and it
-  // runs into the wind arrow, hence the -99 floor
   tft.setTextPadding(tft.textWidth(" -88"));
 
   int16_t currentTemp = constrain(roundTemp(current->temp), -99, 199);
@@ -577,8 +538,6 @@ void applyConfigChanges(uint8_t changes) {
   bool activeMoved = changes & (altLocation ? CFG_LOC2_MOVED : CFG_LOC1_MOVED);
   bool otherMoved  = changes & (altLocation ? CFG_LOC1_MOVED : CFG_LOC2_MOVED);
 
-  // Off-screen location — cache its new name now. A failed lookup stays
-  // "Unknown" and gets retried when a touch switches to it.
   if (otherMoved) lookupCityName(!altLocation);
 
   // Whatever's still cached (a moved location's was just dropped above)
@@ -668,7 +627,7 @@ void drawUpdateFailedLine() {
 
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(TFT_RED, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth(" Updated: Mmm 44 44:44 "));  // same width as the normal line
+  tft.setTextPadding(DATE_LINE_PAD);  // same width as the normal line
   tft.drawString(msg, 120, 16);
   tft.setTextPadding(0);
 }
@@ -733,17 +692,13 @@ void drawTime() {
   lastBlinkMs = millis();
   drawColonGlyph(true);
 
-  // Where AM/PM goes: on the clock's baseline, just right of the minutes.
-  // BL_DATUM put the bottom of the font box (baseline + descent) at CLOCK_Y,
-  // and the small font's descent differs, so align on the baseline itself.
+  // AM/PM sits on the clock's baseline, just right of the minutes
   int16_t clockBaseline = CLOCK_Y - tft.fontHeight() + tft.gFont.maxAscent;
   int16_t minutesRight = clockColonX + colonHalfW + tft.textWidth("44");
 
   tft.unloadFont();
 
-  // AM/PM in the 12hr clock — otherwise there's no telling which it is at the
-  // other location. Blanked in 24hr mode. HH:MM stays centred on the colon.
-  tft.loadFont(AA_FONT_SMALL, LittleFS);
+  tft.loadFont(AA_FONT_SMALL, LittleFS);  // AM/PM in 12hr mode, blanked in 24hr
   tft.setTextDatum(L_BASELINE);
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.setTextPadding(max(tft.textWidth(amStr), tft.textWidth(pmStr)));  // AM fully covers PM and back
@@ -766,8 +721,7 @@ void blinkColon() {
   tft.unloadFont();
 }
 
-// Shared by drawTime() (font already loaded) and blinkColon() (loads its
-// own). Assumes AA_FONT_LARGE is currently loaded.
+// Used by drawTime() and blinkColon(); AA_FONT_LARGE must be loaded
 void drawColonGlyph(bool visible) {
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(visible ? TFT_GREEN : TFT_BLACK, TFT_BLACK);
@@ -789,7 +743,7 @@ void drawCurrentWeather() {
 
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth(" Updated: Mmm 44 44:44 "));
+  tft.setTextPadding(DATE_LINE_PAD);
   tft.drawString(date, 120, 16);
 
   String weatherIcon = "";
@@ -855,8 +809,6 @@ void drawCurrentWeather() {
   if (windAngle > 7) windAngle = 0;
   String wind[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
   ui.drawBmp("/wind/" + wind[windAngle] + ".bmp", 101, 86);
-  //
-  // Show city name for whichever location is active
   String cityName = altLocation ? theCityLocation2 : theCityLocation;
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
@@ -868,9 +820,7 @@ void drawCurrentWeather() {
     uvMax = (current->uvi + .5);
     if (uvMax > 9) uvMax = 9;
     for (temp = 0; temp <= 9; temp++) {
-      // 3px bars, 1px apart (x 199-237) — compacted from 4px/2px at x 178
-      // to leave room for AM/PM beside the clock's minutes
-      x = 199 + (temp * 4);
+      x = 199 + (temp * 4);  // 3px bars, 1px apart (x 199-237), clear of AM/PM
       y = 40 - (temp * 2);
       if (temp <= uvMax) {
         switch (temp) {
@@ -903,8 +853,7 @@ void drawCurrentWeather() {
 ***************************************************************************************/
 // draws the four forecast columns for either days 1-4 or days 5-8
 void drawForecast() {
-  // forecastPage false = days 1-4 (index 1..4), true = days 5-8 (index 5..7)
-  // Index 0 = today, indices 1-7 = next 7 days. Index 8 does not exist.
+  // Index 0 = today, 1-7 = next 7 days; forecastPage picks the first or second set of 4
   int8_t baseDay = forecastStartToday ? 0 : 1;
   int8_t dayIndex = forecastPage ? (baseDay + 4) : baseDay;
 
@@ -935,9 +884,7 @@ void drawForecastDetail(uint16_t x, uint16_t y, uint8_t dayIndex) {
   tft.setTextPadding(tft.textWidth("WWW"));
   tft.drawString(day, x + 25, y);
 
-  // High/low centred 28px apart, either side of the 50px icon's centre (x + 25),
-  // so two 3-character values ("105" / "-30", 27px each) still don't touch
-  tft.setTextPadding(tft.textWidth("-88"));
+  tft.setTextPadding(tft.textWidth("-88"));  // high/low 28px apart, either side of the icon centre
   int16_t highTemp = roundTemp(daily->temp_max[dayIndex]);
   int16_t lowTemp = roundTemp(daily->temp_min[dayIndex]);
   handleTempRangeColour(highTemp);
@@ -974,20 +921,12 @@ void handleHourlyFrame() {
   theY = 280;
   theOffsetY = 18;
   temp = 0;
-  // Values are right-aligned on each column's right edge, so "5", "-12" and
-  // "105" all line up. 31px pitch leaves ~5px between two 3-wide values
-  // ("101" "100"), same breathing room as the daily high/low pair — 28px ran
-  // them together. Last right edge lands at 237.
-  const uint16_t colRight = 82;
-  const uint16_t colPitch = 31;
+  const uint16_t colRight = 82;  // values right-aligned; last right edge lands at 237
+  const uint16_t colPitch = 31;  // ~5px between two 3-digit values
   tft.fillRect(0, 241, 240, 320 - 241, TFT_BLACK);
   tft.loadFont(AA_FONT_SMALL, LittleFS);
   tft.setTextColor(labelColour, TFT_BLACK);
-  // Labels left-aligned at the screen edge rather than right-aligned to a
-  // shared edge: the widest label ("Neer%:", 55px) only sits on the POP row,
-  // where values are 2-wide, so "Temp:" no longer has to leave room for it.
-  // Leading spaces (" Dew:") were there to nudge right-aligned text — trimmed.
-  tft.setTextDatum(BL_DATUM);
+  tft.setTextDatum(BL_DATUM);  // labels left-aligned; widest is "Neer%:" (55px) on the 2-digit POP row
   tft.setTextPadding(0);
   const char *labels[3] = { popLabelStr, tempLabelStr, dewLabelStr };
   for (uint8_t row = 0; row < 3; row++) {
@@ -1220,12 +1159,10 @@ int splitIndex(String text, int maxWidth) {
   }
   if (index) index--;
 
-  // No space found (a single long word like "Thunderstorm"), or the first
-  // half is still too wide — fall back to the widest prefix that actually
-  // fits maxWidth so it wraps onto two lines instead of running off-screen.
+  // No space, or the first half too wide: split at the widest part that fits
   if (maxWidth && (!index || tft.textWidth(text.substring(0, index)) > maxWidth)) {
     index = text.length();
-    while (index > 1 && tft.textWidth(text.substring(0, index)) > maxWidth) {
+    while (index > 1 && (((uint8_t)text[index] & 0xC0) == 0x80 || tft.textWidth(text.substring(0, index)) > maxWidth)) {  // never split inside an accented letter
       index--;
     }
   }
@@ -1262,8 +1199,7 @@ int leftOffset(String text, String sub) {
 #define RING_IR 10  // inner radius — 7px thick
 
 void drawProgressRing(uint8_t percent) {
-  // TFT_eSPI angles: 0 = 6 o'clock, clockwise — so 12 o'clock is 180.
-  // drawArc (not drawSmoothArc) so the moving end stays square as it grows.
+  // TFT_eSPI angles: 0 = 6 o'clock, clockwise, so 12 o'clock is 180
   tft.drawArc(RING_X, RING_Y, RING_R, RING_IR, 0, 360, TFT_DARKGREY, TFT_BLACK);
   if (percent >= 100) {
     tft.drawArc(RING_X, RING_Y, RING_R, RING_IR, 0, 360, TFT_GREEN, TFT_BLACK);
@@ -1442,16 +1378,18 @@ int8_t getWifiQuality() {
 **                    Display Access Point setup screen
 ***************************************************************************************/
 void configModeCallback(WiFiManager *myWiFiManager) {
+  portalShown = true;
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(TC_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString("Access Point Active", SCREEN_W / 2, (SCREEN_H / 2) - 18, 2);
+  tft.loadFont(AA_FONT_SMALL, LittleFS);
+  tft.drawString(strAPActive, SCREEN_W / 2, (SCREEN_H / 2) - 18);
+  tft.unloadFont();
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
   tft.drawString(String(HOSTNAME), SCREEN_W / 2, SCREEN_H / 2, 4);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextFont(2);
-  tft.drawString("IP: 192.168.4.1", SCREEN_W / 2, (SCREEN_H / 2) + 18, 2);
-  tft.unloadFont();
+  tft.drawString("IP: 192.168.4.1", SCREEN_W / 2, (SCREEN_H / 2) + 28, 2);  // below Font 4's 26px line
+  tft.loadFont(AA_FONT_SMALL, LittleFS);  // setup() carries on drawing in the smooth font
   delay(2000);
 }
 
@@ -1472,9 +1410,7 @@ void findTheLocation() {
 **  Returns true if a name is cached (already, or just fetched).
 ***************************************************************************************/
 bool lookupCityName(bool alt) {
-  // Reuse the cached name if we already have one — Nominatim asks clients to cache results.
-  // Cache lives in RAM only: cleared on reboot, and per location when a Save moves it.
-  String &cached = alt ? theCityLocation2 : theCityLocation;
+  String &cached = alt ? theCityLocation2 : theCityLocation;  // RAM cache; Nominatim asks clients to cache
   if (cached != "Unknown") return true;
 
   BDCcurrent = new BDC_current;
@@ -1577,9 +1513,7 @@ void showSplashScreen() {
     delay(50);
   }
   tft.unloadFont();
-  // Nothing changed while the splash was up — redraw from memory rather than
-  // setting booted, which re-ran the whole boot download and progress bars
-  redrawScreen(false);
+  redrawScreen(false);  // redraw from memory, no download
 }
 
 /**The MIT License (MIT)

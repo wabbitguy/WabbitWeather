@@ -1,8 +1,5 @@
-// Open-Meteo weather data fetcher / parser for ESP32
-// Replaces the OpenWeatherMap version.  All struct field names are unchanged.
-//
-// Streaming JSON parser:
-//   https://github.com/Bodmer/JSON_Decoder
+// Open-Meteo weather fetch and parser (same structs as the old OpenWeatherMap version)
+// Streaming JSON parser: https://github.com/Bodmer/JSON_Decoder
 
 #include <HTTPClient.h>  // plain HTTP — reverted from HTTPS after real-world timeouts/503s on Open-Meteo's TLS path;
                           // HTTPClient owns its own internal WiFiClient via the single-arg begin(url)
@@ -75,15 +72,7 @@ bool OW_Weather::getForecast(OW_current *current, OW_hourly *hourly, OW_daily *d
   String hourlyFields = "";
   String dailyFields = "";
 
-  // Trimmed to exactly what WabbitWeather.ino actually reads and displays —
-  // verified by grepping every current->/hourly->/daily-> usage in the sketch.
-  // Previously requested a lot more (apparent_temperature, visibility, wind
-  // gusts, rain/snowfall, most of the daily _max/_mean fields, nearly all of
-  // hourly) that was fetched and parsed but never once read afterward —
-  // a holdover from whichever earlier weather source this was adapted from.
-  // partialSet's own (even smaller) field lists are left untouched below;
-  // it's unclear if anything still calls partialDataSet(true).
-  if (current) {
+  if (current) {  // only the fields the sketch actually shows
     if (!partialSet) {
       currentFields = "temperature_2m,relative_humidity_2m,surface_pressure,pressure_msl,"
                       "cloud_cover,wind_speed_10m,wind_direction_10m,uv_index,"
@@ -300,11 +289,7 @@ void OW_Weather::value(const char *val) {
 }
 
 // ===========================================================================
-// WMO weather code → main/description strings
-// Raw WMO code is stored directly in ->id and used by getMeteoconIcon()
-// in the sketch, which maps WMO codes to icon filenames natively.
-//
-// WMO code reference:
+// WMO weather codes (stored as-is in ->id; Translation.h has the text):
 //   0        = Clear sky
 //   1,2,3    = Mainly clear, partly cloudy, overcast
 //   45,48    = Fog
@@ -425,18 +410,14 @@ void OW_Weather::fullDataSet(const char *val) {
     else if (currentKey == "longitude") lon = value.toFloat();
     else if (currentKey == "timezone") timezone = value;
     else if (currentKey == "error" && value == "true") {
-      // Open-Meteo's own error response is syntactically valid JSON (e.g.
-      // {"error":true,"reason":"..."}), so it doesn't trip the parser's
-      // error() callback — without this check parseOK would stay true and
-      // the sketch would think the fetch succeeded.
+      // Open-Meteo's {"error":true} reply is valid JSON, so the parser alone won't catch it
       Serial.println("Open-Meteo returned an error response");
       parseOK = false;
     }
     return;
   }
 
-  // ── current ────────────────────────────────────────────────────────────
-  // Open-Meteo "current" is a flat object (not an array).
+  // ── current (a flat object, not an array) ──────────────────────────────
   if (currentSection == "current" && current) {
     if (currentKey == "time") current->dt = isoToUnix(value);
     else if (currentKey == "temperature_2m") current->temp = value.toFloat();

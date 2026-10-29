@@ -147,8 +147,7 @@ class OW_Weather: public JsonListener {
     bool getForecast(OW_current *current, OW_hourly *hourly, OW_daily  *daily, String latitude, String longitude,
                      String units);
 
-    // Called by library (or user sketch), sends a GET request to a http url
-    // and parses response, returns true if no parse errors
+    // GETs the url and parses the reply; true if no parse errors
     bool parseRequest(String url);
 
     void partialDataSet(bool partialSet);
@@ -188,14 +187,8 @@ class OW_Weather: public JsonListener {
     // -----------------------------------------------------------------------
     // Open-Meteo columnar tracking
     // -----------------------------------------------------------------------
-    // In Open-Meteo the JSON looks like:
-    //   "hourly": { "time": [...], "temperature_2m": [...], ... }
-    //   "daily":  { "time": [...], "temperature_2m_max": [...], ... }
-    //
-    // So instead of incrementing arrayIndex when an object ends (as with OWM),
-    // we increment it each time endArray() fires for a field array, then reset
-    // it to 0 when we start the next field array.  currentKey tells us which
-    // field is being filled.
+    // Data comes as one array per field ("temperature_2m": [...]); currentKey says which field,
+    // arrayIndex counts along it and goes back to 0 for the next field
 
     String   currentSection;    // "current", "hourly", "daily", or ""
     String   currentKey;        // field name inside that section

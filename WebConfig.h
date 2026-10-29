@@ -1,35 +1,12 @@
-// WebConfig.h — Wabbitwx web configuration portal
-// Accessible at http://<hostname>.local or http://<IP> on port 80, where
-// <hostname> is HOSTNAME from All_Settings.h in lowercase (wabbitweather.local)
-//
-// Requires in your .ino:
-//   #include <WebServer.h>
-//   #include <ESPmDNS.h>
-//   These are already in your .ino so no changes needed there.
-//
-// In setup() at the very end, add:
-//   loadConfig();    // load saved settings (writes defaults if no file exists)
-//   startWebConfig(HOSTNAME); // start mDNS + web server
-//
-// In loop() add:
-//   handleWebConfig(); // must be called every loop iteration
-//
-// When the user hits "Update & Save" the globals in All_Settings.h are updated
-// immediately and saved to /config.txt on LittleFS.
-// Check the configUpdated flag in loop() to trigger a display refresh, and
-// configChanges (CFG_* bits below) for what actually changed:
-//   if (configUpdated) { configUpdated = false; applyConfigChanges(configChanges); configChanges = 0; }
+// WebConfig.h — settings web page at http://<HOSTNAME in lowercase>.local (wabbitweather.local)
+// Save updates the All_Settings.h globals, writes /config.txt and sets configUpdated + configChanges
 
 #pragma once
 
 // ── Config file ────────────────────────────────────────────────────────────
 #define CONFIG_FILE "/config.txt"
 
-// ── Flag set by web handler when user saves settings ──────────────────────
-// Declare in your .ino globals: volatile bool configUpdated = false;
-// WebConfig.cpp will set it to true when the user hits Update & Save.
-// Also declare: uint8_t configChanges = 0; — Save ORs these bits in
-// so the sketch only re-fetches what the changes actually need.
+// ── configChanges bits: what the last Save changed, so only that is re-fetched
 #define CFG_LOC1_MOVED    0x01  // location 1 lat/lon changed → new city name (+ weather if on screen)
 #define CFG_LOC2_MOVED    0x02  // location 2 lat/lon changed → same, for location 2
 #define CFG_UNITS_CHANGED 0x04  // imperial ↔ metric → convert what's in memory
@@ -48,7 +25,7 @@ static const TFTColour TFT_COLOURS[] = {
   { "MAROON",      0x7800 },
   { "PURPLE",      0x780F },
   { "OLIVE",       0x7BE0 },
-  { "LIGHTGREY",   0xC618 },
+  { "LIGHTGREY",   0xD69A },
   { "DARKGREY",    0x7BEF },
   { "BLUE",        0x001F },
   { "GREEN",       0x07E0 },

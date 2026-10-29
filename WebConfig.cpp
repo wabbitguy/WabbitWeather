@@ -1,8 +1,4 @@
-// WebConfig.cpp — WabbitWeather web configuration portal
-// All globals (units, latitude, etc.) are visible because Arduino
-// compiles all .ino/.cpp files in the sketch folder together.
-// All_Settings.h is included with SETTINGS_LANGUAGE_ONLY defined, which pulls
-// in just the language selection; the full file would cause duplicate definitions.
+// WebConfig.cpp — WabbitWeather settings web page (the settings globals live in All_Settings.h)
 
 #include <WebServer.h>
 #include <ESPmDNS.h>
@@ -17,8 +13,6 @@
 // ── Web server instance ────────────────────────────────────────────────────
 static WebServer server(80);
 
-// mDNS name, built from HOSTNAME in startWebConfig() — e.g. "wabbitweather"
-// so the page is at http://wabbitweather.local
 static String mdnsName = "wabbitweather";
 
 // ── Forward declarations of globals from All_Settings.h ───────────────────
@@ -243,7 +237,7 @@ static String buildPage(bool saved = false) {
   String html = F("<!DOCTYPE html><html lang='en'><head>"
                   "<meta charset='UTF-8'>"
                   "<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>"
-                  "<title>WabbitWeather</title>"
+                  "<title>" HOSTNAME "</title>"
                   "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'/>"
                   "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
                   "<style>"
@@ -348,7 +342,7 @@ static String buildPage(bool saved = false) {
                   "</style></head><body>");
 
   // ── Header ─────────────────────────────────────────────────────────────────
-  html += "<header><div><h1>&#9928; " + String(wcTitle) + "</h1>"
+  html += "<header><div><h1>&#9928; " + String(HOSTNAME) + "</h1>"
           "<div class='ip'>" + ip + " &nbsp;|&nbsp; " + mdnsName + ".local</div></div>"
           "<button class='wreset' onclick='document.getElementById(\"wm\").classList.add(\"open\")'>"
           + String(wcWifiResetBtn) + "</button></header>";
@@ -500,8 +494,7 @@ static String buildPage(bool saved = false) {
           "attribution:'&copy; OpenStreetMap contributors',maxZoom:18}).addTo(map);"
           "var mk=L.marker([lt,ln],{draggable:true}).addTo(map);"
 
-          // Custom search — outside the map div, no Leaflet event conflicts
-          // Nominatim policy forbids search-as-you-type: query only on Enter, never repeat the last query
+          // Nominatim policy: search only on Enter, never repeat the last query
           "var searchSlot=1,lastQuery='';"
           "function openSearch(slot){"
           "searchSlot=slot;setActive(slot);"
@@ -592,11 +585,7 @@ static String buildPage(bool saved = false) {
           "x.classList.remove('open');});}});"
           "</script>";
 
-  // ── Temp thresholds follow the units switch ────────────────────────────────
-  // Own <script> so it still works if the map script above fails (no Leaflet).
-  // Each box converts from its last typed (or loaded) value and that value's
-  // units, never from the previous conversion, so flipping °F/°C back and
-  // forth can't drift (71F → 22C → 72F) and a hand-typed value still converts.
+  // ── Temp thresholds follow the units switch (from the typed value, so °F/°C flips don't drift)
   html += "<script>"
           "(function(){"
           "function cu(){return document.querySelector('input[name=units]:checked').value;}"
@@ -628,9 +617,7 @@ static void handleRoot() {
   server.send(200, "text/html", buildPage(saved));
 }
 
-// True if the submitted coordinate differs from the stored one. Compared as
-// numbers so "49.1" and "49.10" match; the page sends 4 decimals (~11 m), so
-// anything under half a step is the same spot.
+// True if the submitted coordinate differs from the stored one by half a 4-decimal step or more
 static bool coordMoved(const String& oldVal, const char* argName) {
   if (!server.hasArg(argName)) return false;
   return fabs(server.arg(argName).toDouble() - oldVal.toDouble()) > 0.00005;

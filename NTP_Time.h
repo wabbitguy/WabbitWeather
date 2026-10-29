@@ -1,9 +1,6 @@
 //====================================================================================
 //                                  NTP_Time.h
-//  WabbitWeather — NTP time sync, no timezone library needed.
-//  Timezone offset is stored as a plain int32_t (seconds east of UTC) and
-//  fetched automatically from timeapi.io based on lat/long.
-//  Replaces the JChristensen Timezone library approach entirely.
+//  NTP time sync; the timezone offset (seconds east of UTC) comes from timeapi.io by lat/long
 //====================================================================================
 #pragma once
 
@@ -45,17 +42,8 @@ uint32_t newRecvTime    = 0;
 uint32_t lastRecvTime   = 0;
 
 //====================================================================================
-//                  NTP re-sync timer — pure millis(), boot-relative
-//
-//  Deliberately NOT wall-clock based, and NOT tied to location switches.
-//  Runs on its own countdown from boot, phase-offset from the weather
-//  fetch schedule (All_Settings.h UPDATE_INTERVAL_SECS) by half its interval.
-//  Because the NTP interval (4 hours) is an exact multiple of the weather
-//  interval whenever UPDATE_INTERVAL_SECS divides evenly into 4hr (true for
-//  15min, 30min, 20min, etc.), baking that half-interval offset in once at
-//  boot keeps NTP sitting at the exact midpoint between weather fetches
-//  forever — not just on the first cycle, and regardless of what wall-clock
-//  minute the board happened to boot at. See WabbitWeather.ino setup()/loop().
+//                  NTP re-sync timer (millis() from boot)
+//  Offset by half a weather interval, so it always lands midway between weather fetches
 //====================================================================================
 const uint32_t NTP_SYNC_INTERVAL_MS = 4UL * 3600UL * 1000UL;               // 4 hours
 const uint32_t NTP_SYNC_OFFSET_MS   = (UPDATE_INTERVAL_SECS * 1000UL) / 2; // half a weather interval
@@ -65,12 +53,7 @@ uint32_t no_packet_count = 0;
 bool     rebooted       = true;
 
 //====================================================================================
-//                         Local time helper
-//
-//  Replaces (*tz).toLocal(t, &tcr) everywhere in the sketch.
-//  tzOffset is declared in All_Settings.h as int32_t.
-//  Usage:  time_t local = toLocal(now());
-//          time_t local = toLocal(current->dt);
+//                         Local time helper: toLocal(utc) adds tzOffset
 //====================================================================================
 extern int32_t tzOffset;
 extern int32_t tzOffset2;
@@ -82,11 +65,7 @@ inline time_t toLocal(time_t utcTime) {
 
 //====================================================================================
 //                         Timezone offset fetch from timeapi.io
-//
-//  Queries https://timeapi.io/api/timezone/coordinate?latitude=xx&longitude=yy
-//  Parses "currentUtcOffset":{"seconds": NNN } and returns NNN.
-//  Returns the existing offset unchanged on any failure so the clock
-//  keeps running even if the network call fails.
+//  Returns the current offset unchanged if the fetch fails
 //====================================================================================
 int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffset) {
   if (WiFi.status() != WL_CONNECTED) return currentOffset;
@@ -99,10 +78,7 @@ int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffse
   http.begin(url);
   http.setTimeout(12000);  // bounds the read phase — don't block the display loop indefinitely
 
-  // Force the connection closed after this response — same reasoning as the
-  // other two fetches: don't leave a keep-alive socket lingering into the
-  // next cycle.
-  http.addHeader("Connection", "close");
+  http.addHeader("Connection", "close");  // no keep-alive socket left lingering
 
   Serial.println("Sending GET request to timeapi.io...");
   int code = http.GET();
@@ -195,7 +171,6 @@ void decodeNTP() {
 
 //====================================================================================
 //                         Sync time from NTP pool
-//  Call as:  syncTime();   (no tzIndex argument needed anymore)
 //====================================================================================
 void syncTime() {
   if (nextSendTime < millis()) {
