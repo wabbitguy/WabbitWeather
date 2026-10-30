@@ -23,6 +23,10 @@ extern int32_t tzOffset;
 extern String latitude2;
 extern String longitude2;
 extern int32_t tzOffset2;
+extern String locationName;
+extern String locationName2;
+extern String theCityLocation;
+extern String theCityLocation2;
 extern bool show24Hour;
 extern bool autoDimDusk;
 extern bool showBarometric;
@@ -47,6 +51,9 @@ extern uint32_t astrologyColour;
 extern uint8_t blDusk;
 extern volatile bool configUpdated;
 extern uint8_t configChanges;
+
+// ── In WabbitWeather.ino: fetch + cache a location's name (false = 1, true = 2) ──
+extern bool lookupCityName(bool alt);
 
 // ── fetchTZOffset declared in NTP_Time.h ──────────────────────────────────
 extern int32_t fetchTZOffset(const String& lat, const String& lon, int32_t currentOffset);
@@ -86,6 +93,8 @@ void loadConfig() {
     else if (key == "latitude2") latitude2 = value;
     else if (key == "longitude2") longitude2 = value;
     else if (key == "tzOffset2") tzOffset2 = value.toInt();
+    else if (key == "locationName") locationName = value;
+    else if (key == "locationName2") locationName2 = value;
     else if (key == "show24Hour") show24Hour = (value == "true");
     else if (key == "autoDimDusk") autoDimDusk = (value == "true");
     else if (key == "showBarometric") showBarometric = (value == "true");
@@ -128,6 +137,8 @@ void saveConfig() {
   f.println("latitude2=" + latitude2);
   f.println("longitude2=" + longitude2);
   f.println("tzOffset2=" + String(tzOffset2));
+  f.println("locationName=" + locationName);
+  f.println("locationName2=" + locationName2);
   f.println("show24Hour=" + String(show24Hour ? "true" : "false"));
   f.println("autoDimDusk=" + String(autoDimDusk ? "true" : "false"));
   f.println("showBarometric=" + String(showBarometric ? "true" : "false"));
@@ -157,6 +168,31 @@ void saveConfig() {
 // ===========================================================================
 // HTML helpers
 // ===========================================================================
+
+// Text made safe to put inside a value='...' attribute
+static String htmlAttr(const String& s) {
+  String out;
+  for (uint16_t i = 0; i < s.length(); i++) {
+    char c = s[i];
+    if (c == '&') out += "&amp;";
+    else if (c == '\'') out += "&#39;";
+    else if (c == '"') out += "&quot;";
+    else if (c == '<') out += "&lt;";
+    else out += c;
+  }
+  return out;
+}
+
+// One location display name row: "TZ1 name on display  [ FrostByte Falls ]".
+// The box shows what the display shows: the typed name, else the looked-up one.
+static String locationNameRow(uint8_t slot, const String& typed, const String& lookedUp) {
+  String value = typed;
+  if (value.isEmpty() && lookedUp != "Unknown" && lookedUp != strLocalWeather) value = lookedUp;
+  String n = String(slot);
+  return "<div class='row'><label>TZ" + n + " " + String(wcLocName) + "</label>"
+         "<input type='text' id='name" + n + "' name='locationName" + (slot == 1 ? "" : n) + "'"
+         " value='" + htmlAttr(value) + "' maxlength='26'></div>";
+}
 
 static String colourSelect(const String& name, uint32_t currentValue) {
   String curName = "Unknown";
@@ -401,6 +437,10 @@ static String buildPage(bool saved = false) {
           "</div>";
 
   html += "</div>";  // end tzrows wrapper
+
+  // Optional names for the display, instead of the map's town name
+  html += locationNameRow(1, locationName, theCityLocation);
+  html += locationNameRow(2, locationName2, theCityLocation2);
   html += "</div>";  // end location card
 
   // ── Display ────────────────────────────────────────────────────────────────
@@ -548,7 +588,30 @@ static String buildPage(bool saved = false) {
           "else{fi.textContent='?';}"
           "}).catch(function(){fi.textContent='err';});}"
 
-          // Update coords + fetch TZ for active slot
+          // Town name from OpenStreetMap into the slot's name box, asked the same way as
+          // the device's own lookup. Waits until the pin has been still for a second
+          // (Nominatim allows one request a second). On failure the box is left blank,
+          // so the device looks the name up itself after Save.
+          "var nameTimer={};"
+          "function fetchName(lat,lon,slot){"
+          "var box=document.getElementById('name'+slot);"
+          "var at=lat+','+lon;"
+          "box.dataset.at=at;box.value='';box.placeholder='...';"
+          "clearTimeout(nameTimer[slot]);"
+          "nameTimer[slot]=setTimeout(function(){"
+          "fetch('https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&zoom=12"
+          "&accept-language=" NOMINATIM_LANG ",en&lat='+lat+'&lon='+lon)"
+          ".then(function(r){return r.json();})"
+          ".then(function(d){"
+          "if(box.dataset.at!==at)return;"  // the pin moved again since
+          "var a=d.address||{};"
+          "var n=a.city||a.town||a.village||a.hamlet||d.name||'';"
+          "box.value=Array.from(n).slice(0,26).join('');"
+          "box.placeholder='';})"
+          ".catch(function(){if(box.dataset.at===at)box.placeholder='';});"
+          "},1000);}"
+
+          // Update coords + fetch TZ and name for active slot
           "function uc(a,b){"
           "b=((b+180)%360+360)%360-180;"
           "var latId=active===1?'lat':'lat2';"
@@ -560,10 +623,17 @@ static String buildPage(bool saved = false) {
           "document.getElementById(lonId).value=bf;"
           "document.getElementById(dlatId).textContent=af;"
           "document.getElementById(dlonId).textContent=bf;"
-          "fetchTZ(af,bf,active);}"
+          "fetchTZ(af,bf,active);fetchName(af,bf,active);}"
 
           "mk.on('dragend',function(e){var p=mk.getLatLng();uc(p.lat,p.lng);});"
           "map.on('click',function(e){mk.setLatLng(e.latlng);uc(e.latlng.lat,e.latlng.lng);});"
+
+          // A name box still blank on opening (the device couldn't look it up yet):
+          // fill it from here, TZ2 a second later to keep to Nominatim's pace
+          "if(!document.getElementById('name1').value)"
+          "fetchName(document.getElementById('lat').value,document.getElementById('lon').value,1);"
+          "if(!document.getElementById('name2').value)setTimeout(function(){"
+          "fetchName(document.getElementById('lat2').value,document.getElementById('lon2').value,2);},1100);"
 
           // Colour selector functions
           "function csToggle(id){"
@@ -614,6 +684,10 @@ static String buildPage(bool saved = false) {
 
 static void handleRoot() {
   bool saved = server.hasArg("saved");
+  // Boot only looks up the location on screen. Fetch the other name now so both
+  // boxes open filled; once it's cached (or typed) these return straight away.
+  lookupCityName(false);
+  lookupCityName(true);
   server.send(200, "text/html", buildPage(saved));
 }
 
@@ -621,6 +695,20 @@ static void handleRoot() {
 static bool coordMoved(const String& oldVal, const char* argName) {
   if (!server.hasArg(argName)) return false;
   return fabs(server.arg(argName).toDouble() - oldVal.toDouble()) > 0.00005;
+}
+
+// A submitted display name: one line, no outer spaces, at most 26 letters (as on screen)
+static String cleanLocationName(const String& raw) {
+  String name;
+  uint8_t letters = 0;
+  for (uint16_t i = 0; i < raw.length(); i++) {
+    uint8_t c = raw[i];
+    if (c < 0x20) continue;  // no newlines etc. in the one-line config file
+    if ((c & 0xC0) != 0x80 && ++letters > 26) break;  // count letters, not UTF-8 bytes
+    name += (char)c;
+  }
+  name.trim();
+  return name;
 }
 
 static void handleSave() {
@@ -637,6 +725,13 @@ static void handleSave() {
   if (server.hasArg("latitude2")) latitude2 = server.arg("latitude2");
   if (server.hasArg("longitude2")) longitude2 = server.arg("longitude2");
   if (server.hasArg("tzOffset2")) tzOffset2 = server.arg("tzOffset2").toInt();
+  if (server.hasArg("locationName") && server.hasArg("locationName2")) {
+    String name1 = cleanLocationName(server.arg("locationName"));
+    String name2 = cleanLocationName(server.arg("locationName2"));
+    if (name1 != locationName || name2 != locationName2) changes |= CFG_NAMES_CHANGED;
+    locationName = name1;
+    locationName2 = name2;
+  }
 
   show24Hour = server.hasArg("show24Hour");
   autoDimDusk = server.hasArg("autoDimDusk");

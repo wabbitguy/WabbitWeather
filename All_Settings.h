@@ -67,12 +67,16 @@ int32_t tzOffset2 = -25200;
 String theCityLocation  = "Unknown";
 String theCityLocation2 = "Unknown";
 
+// Names typed on the web page, shown instead of the looked-up ones ("" = use the lookup)
+String locationName  = "";
+String locationName2 = "";
+
 /***************************************************************************************
 **                          Display options
 ***************************************************************************************/
 
 bool show24Hour           = false;  // false = 12hr, true = 24hr clock
-bool autoDimDusk          = true;   // dim display between sunset and sunrise
+bool autoDimDusk          = false;   // dim display between sunset and sunrise
 bool showBarometric       = false;  // show barometric pressure
 bool pressureSeaLevel     = true;   // true = sea level (as weather reports), false = station (actual at your elevation)
 bool showPrecipProbability = true;  // show precip probability in forecast

@@ -10,6 +10,7 @@
 #define CFG_LOC1_MOVED    0x01  // location 1 lat/lon changed → new city name (+ weather if on screen)
 #define CFG_LOC2_MOVED    0x02  // location 2 lat/lon changed → same, for location 2
 #define CFG_UNITS_CHANGED 0x04  // imperial ↔ metric → convert what's in memory
+#define CFG_NAMES_CHANGED 0x08  // a display name was typed or cleared → a cleared one needs a lookup
 
 // ── TFT colour lookup table ────────────────────────────────────────────────
 struct TFTColour {

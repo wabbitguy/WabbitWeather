@@ -20,7 +20,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 
-#define WABBIT_VERSION "Version: 1.8.0"
+#define WABBIT_VERSION "Version: 1.8.2"
 
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -37,6 +37,7 @@
 
 #include <WiFi.h>
 #include <WiFiManager.h>
+#include <qrcode.h>  // Espressif's QR code generator, part of the ESP32 core
 
 #include "All_Settings.h"
 #include "Translation.h"
@@ -79,6 +80,8 @@ BDC_current *BDCcurrent;  // struct that holds the location data
 
 boolean booted = true;
 bool portalShown = false;  // the Wi-Fi setup screen was shown this boot
+volatile bool apScreenStop = false;     // set by setup() when the setup hotspot closes
+volatile bool apScreenRunning = false;  // apScreenTask() is still drawing
 
 bool forecastPage = false;       // false = days 1-4 (default), true = days 5-8
 uint32_t forecastPageTimer = 0;  // millis() timestamp when forecastPage was set true
@@ -226,6 +229,8 @@ void setup() {
   wm.setHostname(HOSTNAME);  // name shown in the router's device list
   wm.autoConnect(HOSTNAME);  // the Wi-Fi setup hotspot's name
   if (portalShown) {  // clear the Wi-Fi setup screen
+    apScreenStop = true;  // wait for apScreenTask() to finish drawing first
+    while (apScreenRunning) delay(10);
     tft.fillScreen(TFT_BLACK);
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   }
@@ -540,6 +545,13 @@ void applyConfigChanges(uint8_t changes) {
 
   if (otherMoved) lookupCityName(!altLocation);
 
+  // A cleared display name falls back to the looked-up one, which may never have
+  // been fetched (both calls do nothing if it's cached or a name is still typed)
+  if (changes & CFG_NAMES_CHANGED) {
+    lookupCityName(false);
+    lookupCityName(true);
+  }
+
   // Whatever's still cached (a moved location's was just dropped above)
   if (changes & CFG_UNITS_CHANGED) convertWeatherUnits(units == "imperial");
 
@@ -809,7 +821,13 @@ void drawCurrentWeather() {
   if (windAngle > 7) windAngle = 0;
   String wind[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
   ui.drawBmp("/wind/" + wind[windAngle] + ".bmp", 101, 86);
-  String cityName = altLocation ? theCityLocation2 : theCityLocation;
+  String cityName = altLocation ? locationName2 : locationName;  // typed on the web page
+  if (cityName.isEmpty()) cityName = altLocation ? theCityLocation2 : theCityLocation;
+  while (tft.textWidth(cityName) > SCREEN_W - 4) {  // e.g. a typed name in capitals: drop letters to fit
+    int end = cityName.length() - 1;
+    while (end > 0 && ((uint8_t)cityName[end] & 0xC0) == 0x80) end--;  // back to the letter's first byte
+    cityName.remove(end);
+  }
   tft.setTextDatum(BC_DATUM);
   tft.setTextColor(labelColour, TFT_BLACK);
   tft.setTextPadding(tft.textWidth(cityName));
@@ -1377,19 +1395,76 @@ int8_t getWifiQuality() {
 /***************************************************************************************
 **                    Display Access Point setup screen
 ***************************************************************************************/
+// Two QR codes, one at a time. Step 1 joins the open setup hotspot; once a phone
+// is on it, step 2 opens the setup page (iPhones often don't pop it up themselves).
+#define AP_QR_JOIN "WIFI:T:nopass;S:" HOSTNAME ";;"
+#define AP_QR_SETUP "http://192.168.4.1"
+#define AP_QR_TOP 62      // top of the QR code's white square
+#define AP_QR_MAX_PX 190  // largest the white square may be (fits between name and hint)
+#define AP_HINT_Y 258     // step hint under the QR code
+
+// esp_qrcode_generate() callback: dark modules on a white square with a
+// 4-module quiet zone, which cameras need to find the code
+void drawAPQrCode(esp_qrcode_handle_t qrcode) {
+  int size = esp_qrcode_get_size(qrcode);
+  int scale = AP_QR_MAX_PX / (size + 8);
+  int side = (size + 8) * scale;
+  int left = (SCREEN_W - side) / 2;
+  tft.fillRect(left, AP_QR_TOP, side, side, TFT_WHITE);
+  for (int y = 0; y < size; y++) {
+    for (int x = 0; x < size; x++) {
+      if (esp_qrcode_get_module(qrcode, x, y)) {
+        tft.fillRect(left + (x + 4) * scale, AP_QR_TOP + (y + 4) * scale, scale, scale, TFT_BLACK);
+      }
+    }
+  }
+}
+
+// Draws step 1 (join the hotspot) or step 2 (open the setup page): QR code and hint.
+// Expects AA_FONT_SMALL loaded.
+void drawAPStep(bool phoneJoined) {
+  tft.fillRect(0, AP_QR_TOP, SCREEN_W, AP_HINT_Y + 20 - AP_QR_TOP, TFT_BLACK);
+  esp_qrcode_config_t qrConfig = { drawAPQrCode, 10, ESP_QRCODE_ECC_MED };
+  esp_qrcode_generate(&qrConfig, phoneJoined ? AP_QR_SETUP : AP_QR_JOIN);
+  tft.setTextDatum(TC_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(phoneJoined ? strAPStep2 : strAPStep1, SCREEN_W / 2, AP_HINT_Y);
+}
+
+// Runs while the setup hotspot is up (WiFiManager keeps setup() busy meanwhile)
+// and switches between the two steps as phones join and leave
+void apScreenTask(void *param) {
+  bool shown = false;  // configModeCallback() drew step 1
+  while (!apScreenStop) {
+    bool joined = WiFi.softAPgetStationNum() > 0;
+    if (joined != shown) {
+      drawAPStep(joined);
+      shown = joined;
+    }
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+  apScreenRunning = false;
+  vTaskDelete(NULL);
+}
+
 void configModeCallback(WiFiManager *myWiFiManager) {
   portalShown = true;
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(TC_DATUM);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.loadFont(AA_FONT_SMALL, LittleFS);
-  tft.drawString(strAPActive, SCREEN_W / 2, (SCREEN_H / 2) - 18);
+  tft.drawString(strAPActive, SCREEN_W / 2, 6);
   tft.unloadFont();
   tft.setTextColor(TFT_GREEN, TFT_BLACK);
-  tft.drawString(String(HOSTNAME), SCREEN_W / 2, SCREEN_H / 2, 4);
+  tft.drawString(String(HOSTNAME), SCREEN_W / 2, 28, 4);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString("IP: 192.168.4.1", SCREEN_W / 2, (SCREEN_H / 2) + 28, 2);  // below Font 4's 26px line
+  tft.drawString("IP: 192.168.4.1", SCREEN_W / 2, 284, 2);  // for joining by hand
   tft.loadFont(AA_FONT_SMALL, LittleFS);  // setup() carries on drawing in the smooth font
+  drawAPStep(false);
+
+  apScreenStop = false;
+  apScreenRunning = true;
+  xTaskCreatePinnedToCore(apScreenTask, "apScreen", 8192, NULL, 1, NULL, 1);
   delay(2000);
 }
 
@@ -1412,6 +1487,12 @@ void findTheLocation() {
 bool lookupCityName(bool alt) {
   String &cached = alt ? theCityLocation2 : theCityLocation;  // RAM cache; Nominatim asks clients to cache
   if (cached != "Unknown") return true;
+  if (!(alt ? locationName2 : locationName).isEmpty()) return true;  // a typed name is shown instead
+
+  static uint32_t lastLookup = 0;  // Nominatim allows one request a second
+  uint32_t since = millis() - lastLookup;
+  if (lastLookup != 0 && since < 1100) delay(1100 - since);
+  lastLookup = millis();
 
   BDCcurrent = new BDC_current;
   String lat = alt ? latitude2 : latitude;
@@ -1468,7 +1549,7 @@ void checkTimezoneOffsets() {
 }
 
 /***************************************************************************************
-**                          Auto-dim backlight at dusk/dawn
+**                          Auto-dim backlight from sunset to sunrise
 ***************************************************************************************/
 void updateBacklight() {
   uint8_t targetBrightness;
@@ -1504,6 +1585,12 @@ void showSplashScreen() {
 
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.drawString(WABBIT_VERSION, 120, 280);
+
+  // The settings page address, for phones and PCs that can't open wabbitweather.local
+  if (WiFi.status() == WL_CONNECTED) {
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("http://" + WiFi.localIP().toString(), 120, 300);
+  }
 
   // Wait for touch or 15 second timeout then return to main display
   uint32_t start = millis();
