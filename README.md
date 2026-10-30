@@ -61,7 +61,7 @@ Access the configuration page at **http://wabbitweather.local** (or the device I
 
 Set up to two locations using the interactive map. Click or drag the pin, or type a city name in the search box. The timezone offset is detected automatically from the coordinates — no manual timezone selection needed.
 
-<img width="640" height="426" alt="map" src="https://github.com/user-attachments/assets/c47578f7-f9ef-4088-91c7-09aed7d13437" />
+<img width="640" height="508" alt="Location-1" src="https://github.com/user-attachments/assets/a3540f7d-b0e8-4b42-8dcd-3c6476fe1c09" />
 
 TZ1 is your primary location. TZ2 is an alternate location (family in another city, a vacation property, etc.). Tap the weather icon area on the display to switch between them.
 
