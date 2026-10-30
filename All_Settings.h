@@ -24,7 +24,7 @@
 **  name, splash screen and web page. Running more than one? Give each its own name,
 **  e.g. "WabbitWeather2". Letters, digits and hyphens only.
 ***************************************************************************************/
-#define HOSTNAME "WabbitWeather2"
+#define HOSTNAME "WabbitWeather"
 
 #ifndef SETTINGS_LANGUAGE_ONLY  // WebConfig.cpp only needs the language and name above
 
