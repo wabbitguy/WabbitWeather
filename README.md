@@ -18,12 +18,12 @@ Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyW
 ## Features
 
 - Live weather from [Open-Meteo](https://open-meteo.com) — updates every 30 minutes, no subscription, no API key
-- Location lookup via [Nominatim](https://nominatim.org) — city name displayed automatically from coordinates
+- Location lookup via [Nominatim](https://nominatim.org) — city name displayed automatically from coordinates, or type your own
 - 8-day forecast with tap-to-page (days 1–4 or days 5–8), with option to start from today
 - 6-hour rotating forecast showing precipitation probability, temperature and dew point
 - Current conditions: temperature, wind speed/direction, UV index, cloud cover, humidity
 - Moon phase display with correct hemisphere orientation (northern/southern)
-- Sunrise/sunset times with automatic backlight dimming at dusk
+- Sunrise/sunset times, with optional backlight dimming from sunset to sunrise
 - **Dual location support** — tap the BIG weather icon area to toggle between two locations
 - **Automatic timezone detection** via [timeapi.io](https://timeapi.io) — no hardcoding required
 - Timezone offsets self-correct at 2am daily for both locations
@@ -32,7 +32,7 @@ Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyW
 - Multilingual: English, French, German, Spanish, Dutch, Portuguese, Turkish
 - Temperature and precipitation threshold colours — fully user configurable
 - Barometric pressure selectable sea level or current elevation
-- WiFi management via WiFiManager captive portal
+- Easy WiFi setup: scan the QR codes on the display with your phone's camera (WiFiManager)
 
 ---
 
@@ -42,12 +42,12 @@ The display has three touch-sensitive areas:
 
 ```
 ┌─────────────────────────┐
-│   Clock / date area     │  Tap → About / splash screen
+│   Clock / date area     │  Tap → About screen (version and IP address)
 ├─────────────────────────┤
 │   Weather icon, temp,   │  Tap → Toggle between TZ1 and TZ2 locations
 │   wind, city name       │
 ├─────────────────────────┤
-│   MON TUE WED THU      │  Tap → Toggle forecast page (days 1-4 / days 5-8)
+│   MON TUE WED THU       │  Tap → Toggle forecast page (days 1-4 / days 5-8)
 └─────────────────────────┘
 ```
 
@@ -55,7 +55,7 @@ The display has three touch-sensitive areas:
 
 ## Web Configuration
 
-Access the configuration page at **http://wabbitweather.local** (or the device IP address) from any browser on the same network.
+Access the configuration page at **http://wabbitweather.local** (or the device IP address) from any browser on the same network. Some phones and computers (older Android especially) can't open `.local` addresses — tap the clock on the display to see its IP address and use that instead.
 
 ### Location
 
@@ -65,13 +65,15 @@ Set up to two locations using the interactive map. Click or drag the pin, or typ
 
 TZ1 is your primary location. TZ2 is an alternate location (family in another city, a vacation property, etc.). Tap the weather icon area on the display to switch between them.
 
+Under the map, **TZ1 name on display** and **TZ2 name on display** show the name the display uses for each location. Moving a pin fills in the town name from OpenStreetMap; change it to whatever you like. Handy when OpenStreetMap picks the neighbouring town — its town lines don't always match your mailing address.
+
 ### Display Settings
 
 <img width="640" height="583" alt="Display_Settings" src="https://github.com/user-attachments/assets/dd57c5b8-7393-4dab-b0e4-a4730a541b99" />
 
 - Imperial (°F) or Metric (°C)
 - 12 or 24 hour clock
-- Auto dim at dusk (uses sunrise/sunset times for the active location)
+- Auto dim at sunset (uses sunrise/sunset times for the active location; off by default)
 - Night brightness (0 = display off, 255 = full brightness)
 - Show/hide barometric pressure, precipitation probability, UV index, 6hr forecast
 - Forecast start: Today or Tomorrow
@@ -111,14 +113,15 @@ WabbitWeather uses a **NO OTA 2MB App / 2MB LittleFS** partition scheme to accom
 1. Use correct driver from TFT-eSPI_Configs, copy to your TFT_eSPI folder, rename copied driver to User_Setup.h
 2. Make your language selection first in the All_Settings.h file (see section below)
 3. Flash the firmware and upload the LittleFS data folder (fonts and icons)
-4. Power on the device — it will create a WiFi access point called **WabbitWeather**
-5. Connect to that access point with your phone or computer
-6. Select your home WiFi network and enter the password
-7. The device reboots and connects to your network
-8. Open **http://wabbitweather.local** in a browser (or http://xxx.xxx.xxx.xxx your routers IP)
-9. Click the map to set your location — timezone is detected automatically
-10. Hit **Update & Save**
-11. Done — the display updates immediately with your local weather
+4. Power on the device — it creates a WiFi access point called **WabbitWeather** and shows a QR code
+5. Point your phone's camera at the QR code and tap **Join**
+6. The display then shows a second QR code — scan it to open the setup page. (No camera? Join the **WabbitWeather** WiFi network by hand — it has no password — and browse to **http://192.168.4.1**)
+7. Tap **Configure WiFi**, select your home WiFi network and enter the password. Pick a 2.4 GHz network; the ESP32 can't use 5 GHz
+8. The device reboots and connects to your network
+9. Open **http://wabbitweather.local** in a browser. If that doesn't work, tap the clock on the display to see its IP address and type that in instead
+10. Click the map to set your location — timezone is detected automatically
+11. Hit **Update & Save**
+12. Done — the display updates immediately with your local weather
 
 If you're new to Arduino, read down further for detailed installation steps
 
@@ -200,6 +203,12 @@ Install the separate upload tool:
 ---
 
 ## Version History
+
+### v1.8.2
+- WiFi setup by QR code: scan to join the hotspot, then scan a second code to open the setup page
+- Your own name for each location on the settings page, filled in from OpenStreetMap when you move the pin
+- IP address on the About screen (tap the clock), for phones and computers that can't open wabbitweather.local
+- "Auto dim at sunset" is now off by default, and its name matches the sunrise/sunset times on screen
 
 ### v1.8.0
 - Accented letters on screen and on the web page (French, German, Spanish, Portuguese, Turkish)
