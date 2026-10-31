@@ -69,7 +69,7 @@ Under the map, **TZ1 name on display** and **TZ2 name on display** show the name
 
 ### Display Settings
 
-<img width="640" height="583" alt="Display_Settings" src="https://github.com/user-attachments/assets/dd57c5b8-7393-4dab-b0e4-a4730a541b99" />
+<img width="640" alt="Display_Settings" src="https://github.com/user-attachments/assets/cf3ef61f-03a4-4952-af23-800901820231" />
 
 - Imperial (°F) or Metric (°C)
 - 12 or 24 hour clock
