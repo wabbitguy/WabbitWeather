@@ -20,7 +20,7 @@
 #define AA_FONT_SMALL "fonts/NotoSansBold15"  // 15 point sans serif bold
 #define AA_FONT_LARGE "fonts/NotoSansBold36"  // 36 point sans serif bold
 
-#define WABBIT_VERSION "Version: 1.8.2"
+#define WABBIT_VERSION "Version: 1.8.3"
 
 /***************************************************************************************
 **                          Load the libraries and settings
@@ -180,7 +180,7 @@ void setup() {
   Serial.begin(115200);
 
   tft.init();
-  tft.invertDisplay(false);  // ST7789 panel needs inversion off; don't rely on whichever User_Setup.h is in the library
+  tft.invertDisplay(false);  // off until the config is loaded (invertColours); don't rely on whichever User_Setup.h is in the library
   tft.fillScreen(TFT_BLACK);
 
   ledcAttach(TFT_BL, TFT_BL_FREQ, TFT_BL_RES);
@@ -191,6 +191,10 @@ void setup() {
     while (1) yield();  // Stay here twiddling thumbs waiting
   }
   Serial.println("\nFlash FS available!");
+
+  // LittleFS.remove(CONFIG_FILE);  // just for testing
+  loadConfig();  // early, so an inverted panel is right from the splash screen on
+  tft.invertDisplay(invertColours);
 
 #ifdef SERIAL_MESSAGES
   //listFiles();
@@ -263,8 +267,6 @@ void setup() {
 
   ow.partialDataSet(false);  // Collect a full set of the data available (false)
 
-  // LittleFS.remove(CONFIG_FILE);  // just for testing
-  loadConfig();
   startWebConfig(HOSTNAME);
 
   // Init touchscreen
@@ -530,6 +532,8 @@ void drawWeatherScreen() {
 **  of each brings in the real values anyway.
 ***************************************************************************************/
 void applyConfigChanges(uint8_t changes) {
+  tft.invertDisplay(invertColours);  // cheap, so no change bit for it
+
   // Coordinates changed → that location's cached city name and weather are stale
   if (changes & CFG_LOC1_MOVED) {
     theCityLocation = "Unknown";
@@ -1465,7 +1469,8 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   apScreenStop = false;
   apScreenRunning = true;
   xTaskCreatePinnedToCore(apScreenTask, "apScreen", 8192, NULL, 1, NULL, 1);
-  delay(2000);
+  // No delay here: WiFiManager starts the setup page's web server once this returns,
+  // and the screen stays up for as long as the hotspot is open anyway
 }
 
 /***************************************************************************************

@@ -16,6 +16,7 @@
 //#define LANG_NL   // Dutch
 //#define LANG_PT   // Portuguese
 //#define LANG_TR   // Turkish
+//#define LANG_IT   // Italian
 #endif
 
 /***************************************************************************************
@@ -83,6 +84,7 @@ bool showPrecipProbability = true;  // show precip probability in forecast
 bool showUVindex          = true;   // show UV index bar
 bool show6hrForecast      = true;   // rotate 6hr forecast in lower panel
 bool forecastStartToday   = false;  // false = forecast from tomorrow, true = from today
+bool invertColours        = false;  // true if black shows as white (some CYD panels need it)
 
 uint8_t iconSet = 0;  // 0 = Standard (BMPs on LittleFS), 1 = Meteocons (built into the firmware)
 

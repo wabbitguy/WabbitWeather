@@ -35,6 +35,7 @@ extern bool showPrecipProbability;
 extern bool showUVindex;
 extern bool show6hrForecast;
 extern bool forecastStartToday;
+extern bool invertColours;
 extern uint8_t iconSet;
 extern int16_t highTempVal;
 extern int16_t lowTempVal;
@@ -103,6 +104,7 @@ void loadConfig() {
     else if (key == "showUVindex") showUVindex = (value == "true");
     else if (key == "show6hrForecast") show6hrForecast = (value == "true");
     else if (key == "forecastStartToday") forecastStartToday = (value == "true");
+    else if (key == "invertColours") invertColours = (value == "true");
     else if (key == "iconSet") iconSet = value.toInt();
     else if (key == "highTempVal") highTempVal = value.toInt();
     else if (key == "lowTempVal") lowTempVal = value.toInt();
@@ -147,6 +149,7 @@ void saveConfig() {
   f.println("showUVindex=" + String(showUVindex ? "true" : "false"));
   f.println("show6hrForecast=" + String(show6hrForecast ? "true" : "false"));
   f.println("forecastStartToday=" + String(forecastStartToday ? "true" : "false"));
+  f.println("invertColours=" + String(invertColours ? "true" : "false"));
   f.println("iconSet=" + String(iconSet));
   f.println("highTempVal=" + String(highTempVal));
   f.println("lowTempVal=" + String(lowTempVal));
@@ -476,6 +479,9 @@ static String buildPage(bool saved = false) {
           "<label><input type='radio' name='iconSet' value='0'" + String(iconSet != 1 ? " checked" : "") + "> " + String(wcIconStandard)  + "</label>"
           "<label><input type='radio' name='iconSet' value='1'" + String(iconSet == 1 ? " checked" : "") + "> " + String(wcIconMeteocons) + "</label>"
           "</div></div>";
+  html += "<div class='row'><div>" + toggle("invertColours", invertColours, wcInvert) +
+          "<div style='font-size:11px;color:var(--muted);margin:4px 0 0 54px'>" + String(wcInvertHint) + "</div>"
+          "</div></div>";
   html += "<div class='row'><label>" + String(wcWeatherHeadings) + "</label>" + colourSelect("labelColour",     labelColour)     + "</div>";
   html += "<div class='row'><label>" + String(wcAstroHeadings)   + "</label>" + colourSelect("astrologyColour", astrologyColour) + "</div>";
   html += "</div>";
@@ -740,6 +746,7 @@ static void handleSave() {
   showUVindex = server.hasArg("showUVindex");
   show6hrForecast = server.hasArg("show6hrForecast");
   forecastStartToday = server.hasArg("forecastStartToday") && server.arg("forecastStartToday") == "1";
+  invertColours = server.hasArg("invertColours");
   if (server.hasArg("iconSet")) iconSet = server.arg("iconSet") == "1" ? 1 : 0;
   if (server.hasArg("pressureSeaLevel")) pressureSeaLevel = server.arg("pressureSeaLevel") == "1";  // display only — both are always fetched
 

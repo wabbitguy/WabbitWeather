@@ -11,7 +11,7 @@
 // -----------------------------------------------------------------------------
 #if !defined(LANG_EN) && !defined(LANG_FR) && !defined(LANG_DE) && \
     !defined(LANG_ES) && !defined(LANG_NL) && !defined(LANG_PT) && \
-    !defined(LANG_TR)
+    !defined(LANG_TR) && !defined(LANG_IT)
   #define LANG_EN
 #endif
 
@@ -130,6 +130,8 @@ const char wcForecastTomorrow[] = "Tomorrow";
 const char wcIconSet[]         = "Weather icons";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Invert colours";
+const char wcInvertHint[]      = "Colour inversion correction";
 const char wcPressure[]        = "Pressure";
 const char wcPressSeaLevel[]   = "Sea level";
 const char wcPressStation[]    = "Station";
@@ -294,6 +296,8 @@ const char wcForecastTomorrow[] = "Demain";
 const char wcIconSet[]         = "Icônes météo";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Inverser les couleurs";
+const char wcInvertHint[]      = "Correction de l'inversion des couleurs";
 const char wcPressure[]        = "Pression";
 const char wcPressSeaLevel[]   = "Niveau de la mer";
 const char wcPressStation[]    = "Station";
@@ -451,6 +455,8 @@ const char wcForecastTomorrow[] = "Morgen";
 const char wcIconSet[]         = "Wettersymbole";
 const char wcIconStandard[]    = "Standard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Farben invertieren";
+const char wcInvertHint[]      = "Korrektur der Farbumkehrung";
 const char wcPressure[]        = "Luftdruck";
 const char wcPressSeaLevel[]   = "Meeresniveau";
 const char wcPressStation[]    = "Standort";
@@ -607,6 +613,8 @@ const char wcForecastTomorrow[] = "Mañana";
 const char wcIconSet[]         = "Iconos del tiempo";
 const char wcIconStandard[]    = "Estándar";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Invertir colores";
+const char wcInvertHint[]      = "Corrección de inversión de color";
 const char wcPressure[]        = "Presión";
 const char wcPressSeaLevel[]   = "Nivel del mar";
 const char wcPressStation[]    = "Estación";
@@ -764,6 +772,8 @@ const char wcForecastTomorrow[] = "Morgen";
 const char wcIconSet[]         = "Weericonen";
 const char wcIconStandard[]    = "Standaard";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Kleuren omkeren";
+const char wcInvertHint[]      = "Correctie voor kleurinversie";
 const char wcPressure[]        = "Luchtdruk";
 const char wcPressSeaLevel[]   = "Zeeniveau";
 const char wcPressStation[]    = "Station";
@@ -920,6 +930,8 @@ const char wcForecastTomorrow[] = "Amanhã";
 const char wcIconSet[]         = "Ícones do tempo";
 const char wcIconStandard[]    = "Padrão";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Inverter cores";
+const char wcInvertHint[]      = "Correção de inversão de cores";
 const char wcPressure[]        = "Pressão";
 const char wcPressSeaLevel[]   = "Nível do mar";
 const char wcPressStation[]    = "Estação";
@@ -1077,6 +1089,8 @@ const char wcForecastTomorrow[] = "Yarın";
 const char wcIconSet[]         = "Hava durumu simgeleri";
 const char wcIconStandard[]    = "Standart";
 const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Renkleri ters çevir";
+const char wcInvertHint[]      = "Renk ters çevirme düzeltmesi";
 const char wcPressure[]        = "Basınç";
 const char wcPressSeaLevel[]   = "Deniz seviyesi";
 const char wcPressStation[]    = "İstasyon";
@@ -1143,5 +1157,164 @@ inline const char* wmoMain(uint16_t id) {
 }
 
 #endif // LANG_TR
+
+// =============================================================================
+//  ITALIAN
+// =============================================================================
+#ifdef LANG_IT
+
+#define NOMINATIM_LANG "it"
+
+static const char* shortMonth[12] = {
+  "Gen","Feb","Mar","Apr","Mag","Giu",
+  "Lug","Ago","Set","Ott","Nov","Dic"};
+
+static const char* shortDOW[8] = { "???", "DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB" };
+
+const char sunStr[] = "Sole";
+const char cloudStr[] = "Nuvole";
+const char humidityStr[] = "Umidità";
+
+static const char* moonPhase[8] = {
+  "Nuova", "Crescente", "Primo qrt", "Crescente",
+  "Piena", "Calante", "Ultimo qrt", "Calante"
+};
+
+const char riseStr[] = "SR:";
+const char setStr[] = "SS:";
+
+const char updatedStr[] = "Aggiornato: ";
+const char failedStr[] = "Errore: ";
+const char windMetric[] = " m/s";
+const char windImperial[] = " mph";
+const char pressImperial[] = " in";
+const char pressMetric[] = " hPa";
+const char tempMetric[] = "oC";
+const char tempImperial[] = "oF";
+const char amStr[] = "AM";
+const char pmStr[] = "PM";
+
+const char forecastTitleStr[] = "Previsioni 6h";
+const char popLabelStr[] = "Prec%:";
+const char tempLabelStr[] = "Temp:";
+const char dewLabelStr[] = " Rug:";
+
+const char bootUpdatingTime[] = "Aggiornamento ora...";
+const char bootUpdatingConditions[] = "Aggiornamento meteo...";
+const char bootDone[] = "Fatto...";
+const char bootConnectedWifi[] = "WiFi connesso";
+const char bootFetchingWeather[] = "Download dati meteo...";
+const char bootFlashOK[] = "Flash FS pronto!";
+const char bootFlashFail[] = "Errore Flash FS!";
+const char bootRetry[] = "Errore, nuovo tentativo tra 60s...";
+const char strAPActive[] = "Access point attivo";  // Wi-Fi setup screen
+const char strAPStep1[] = "1. Scansiona per il Wi-Fi";  // under the setup QR codes
+const char strAPStep2[] = "2. Scansiona per configurare";
+const char strLocalWeather[] = "Meteo locale";  // city name too long to show
+
+const char creditOriginal[] = "Originale: blog.squix.org";
+const char creditBodmer[] = "Adattato da: Bodmer";
+const char creditWabbit[] = "Open-Meteo da: Wabbitguy";
+
+const char wcSaved[] = "&#10003; Impostazioni salvate e applicate.";
+const char wcWifiResetTitle[] = "&#x26A0; Reimpostare il WiFi?";
+const char wcWifiResetBody[] = "Cancella le credenziali WiFi salvate e riavvia in modalità "
+                               "configurazione. Riconnettiti tramite l'hotspot " HOSTNAME ".";
+const char wcWifiResetYes[] = "Sì, reimposta";
+const char wcWifiResetCancel[] = "Annulla";
+const char wcWifiResetBtn[] = "&#x26A0; Reimposta WiFi";
+const char wcWifiResetting[] = "Reimpostazione WiFi...";
+const char wcWifiResetHotspot[] = "Riavvio in corso. Connettiti all'hotspot <strong>" HOSTNAME "</strong>.";
+const char wcSecLocation[] = "Posizione";
+const char wcLocName[] = "nome sul display";  // after "TZ1 " on the settings page
+const char wcSecDisplay[] = "Impostazioni display";
+const char wcSecTempColours[] = "Colori della temperatura";
+const char wcSecPrecipColours[] = "Colori delle precipitazioni";
+const char wcLatLabel[] = "Latitudine";
+const char wcLonLabel[] = "Longitudine";
+const char wcUnitsLabel[] = "Unità di temperatura";
+const char wcImperial[] = "Imperiali (&deg;F)";
+const char wcMetric[] = "Metriche (&deg;C)";
+const char wcClock24[] = "Orologio 24 ore";
+const char wcAutoDim[] = "Attenua al tramonto";
+const char wcNightBright[] = "Luminosità notturna (0-255)";
+const char wcNightBrightHint[] = "0 = display spento, 1 = appena visibile";
+const char wcShowBaro[] = "Mostra pressione barometrica";
+const char wcShowPrecip[] = "Mostra probabilità di precipitazioni";
+const char wcShowUV[] = "Mostra indice UV";
+const char wcShow6Hr[] = "Mostra previsioni 6 ore";
+const char wcForecastStart[]    = "Inizio previsioni";
+const char wcForecastToday[]    = "Oggi";
+const char wcForecastTomorrow[] = "Domani";
+const char wcIconSet[]         = "Icone meteo";
+const char wcIconStandard[]    = "Standard";
+const char wcIconMeteocons[]   = "Meteocons";
+const char wcInvert[]          = "Inverti colori";
+const char wcInvertHint[]      = "Correzione dell'inversione dei colori";
+const char wcPressure[]        = "Pressione";
+const char wcPressSeaLevel[]   = "Livello del mare";
+const char wcPressStation[]    = "Stazione";
+const char wcWeatherHeadings[] = "Colore titoli meteo";
+const char wcAstroHeadings[] = "Colore titoli astronomia";
+const char wcHighTempThresh[] = "Soglia temperatura alta (&deg;)";
+const char wcLowTempThresh[] = "Soglia temperatura bassa (&deg;)";
+const char wcHighTempColour[] = "Colore temp alta";
+const char wcMidTempColour[] = "Colore temp media";
+const char wcLowTempColour[] = "Colore temp bassa";
+const char wcHighPrecipThresh[] = "Soglia precipitazioni alta (%)";
+const char wcLowPrecipThresh[] = "Soglia precipitazioni bassa (%)";
+const char wcHighPOPColour[] = "Colore POP alta";
+const char wcMidPOPColour[] = "Colore POP media";
+const char wcLowPOPColour[] = "Colore POP bassa";
+const char wcSaveBtn[] = "Aggiorna e salva";
+const char wcCancelBtn[] = "Annulla";
+
+inline const char* wmoDescription(uint16_t id) {
+  switch (id) {
+    case 0: return "Sereno";
+    case 1: return "Poco nuvoloso";
+    case 2: return "Parzialmente nuvoloso";
+    case 3: return "Coperto";
+    case 45: return "Nebbia";
+    case 48: return "Nebbia gelata";
+    case 51: return "Pioggerella leggera";
+    case 53: return "Pioggerella";
+    case 55: return "Pioggerella intensa";
+    case 56: return "Pioggerella gelata leggera";
+    case 57: return "Pioggerella gelata";
+    case 61: return "Pioggia leggera";
+    case 63: return "Pioggia";
+    case 65: return "Pioggia forte";
+    case 66: return "Pioggia gelata leggera";
+    case 67: return "Pioggia gelata";
+    case 71: return "Neve leggera";
+    case 73: return "Neve";
+    case 75: return "Neve forte";
+    case 77: return "Neve granulosa";
+    case 80: return "Rovesci leggeri";
+    case 81: return "Rovesci";
+    case 82: return "Rovesci forti";
+    case 85: return "Rovesci di neve";
+    case 86: return "Forti rovesci di neve";
+    case 95: return "Temporale";
+    case 96: return "Temporale con grandine";
+    case 99: return "Temporale con grandine";
+    default: return "Sconosciuto";
+  }
+}
+inline const char* wmoMain(uint16_t id) {
+  if (id == 0 || id == 1) return "Sereno";
+  if (id == 2 || id == 3) return "Nuvole";
+  if (id == 45 || id == 48) return "Nebbia";
+  if (id >= 51 && id <= 57) return "Pioggerella";
+  if (id >= 61 && id <= 67) return "Pioggia";
+  if (id >= 71 && id <= 77) return "Neve";
+  if (id >= 80 && id <= 82) return "Pioggia";
+  if (id == 85 || id == 86) return "Neve";
+  if (id == 95 || id == 96 || id == 99) return "Temporale";
+  return "Sconosciuto";
+}
+
+#endif  // LANG_IT
 
 #endif  // TRANSLATION_H

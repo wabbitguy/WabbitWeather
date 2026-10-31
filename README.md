@@ -29,7 +29,7 @@ Originally based on [Bodmer's DarkSkyWeather](https://github.com/Bodmer/DarkSkyW
 - Timezone offsets self-correct at 2am daily for both locations
 - Full web configuration interface — no need to edit code for normal setup
 - Map-based location selection with search box (type "London UK" to jump there)
-- Multilingual: English, French, German, Spanish, Dutch, Portuguese, Turkish
+- Multilingual: English, French, German, Spanish, Dutch, Portuguese, Turkish, Italian
 - Temperature and precipitation threshold colours — fully user configurable
 - Barometric pressure selectable sea level or current elevation
 - Easy WiFi setup: scan the QR codes on the display with your phone's camera (WiFiManager)
@@ -78,6 +78,7 @@ Under the map, **TZ1 name on display** and **TZ2 name on display** show the name
 - Show/hide barometric pressure, precipitation probability, UV index, 6hr forecast
 - Forecast start: Today or Tomorrow
 - Weather icon set
+- Invert colours (for CYD panels that show black as white)
 - Weather and astrology heading colours
 
 ### Temperature Threshold Colours
@@ -139,6 +140,7 @@ Open `All_Settings.h` and uncomment the language you want:
 //#define LANG_NL   // Dutch
 //#define LANG_PT   // Portuguese
 //#define LANG_TR   // Turkish
+//#define LANG_IT   // Italian
 ```
 
 ---
@@ -203,6 +205,11 @@ Install the separate upload tool:
 ---
 
 ## Version History
+
+### v1.8.3
+- Italian language
+- "Invert colours" on the settings page, for CYD panels that show black as white
+- The setup page opens about 2 seconds sooner after you scan the second QR code
 
 ### v1.8.2
 - WiFi setup by QR code: scan to join the hotspot, then scan a second code to open the setup page
